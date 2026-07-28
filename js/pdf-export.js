@@ -332,12 +332,12 @@ async function generatePacingPDF(state) {
       `${fmtPdf(lm.distCumFin, 2)} km`,
       `${fmtPdf(lm.dPlus, 0)} m`,
       `${fmtPdf(lm.dMinus, 0)} m`,
-      fmtPdf(lm.tempsSegment, 1),
+      formatHM(lm.tempsSegment),
       lm.cumulV2HM,
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'Temps segment (min)', 'Temps cumulé']],
+      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'Temps segment', 'Temps cumulé']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
