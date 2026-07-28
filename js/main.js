@@ -98,6 +98,8 @@ function renderAll() {
 
   renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
   updateExportButtonLabel();
+  const pdfBtn = $('#generate-pdf-btn');
+  if (pdfBtn) pdfBtn.style.display = state.pacing ? 'inline-block' : 'none';
 
   // Athlètes
   renderAthletesList(state.athletes, state.activeAthleteId, {
@@ -517,6 +519,26 @@ function wirePacingTab() {
     statusEl.className = 'status ok';
     statusEl.textContent = `✔ Estimation enregistrée dans le profil de ${$('#save-estimation-athlete-name').textContent}.`;
   });
+
+  const pdfBtn = $('#generate-pdf-btn');
+  if (pdfBtn) {
+    pdfBtn.addEventListener('click', async () => {
+      const statusEl = $('#pdf-status');
+      statusEl.className = 'status';
+      statusEl.textContent = '⏳ Génération du PDF…';
+      pdfBtn.disabled = true;
+      try {
+        await generatePacingPDF(state);
+        statusEl.className = 'status ok';
+        statusEl.textContent = '✔ PDF généré et téléchargé.';
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `⚠ ${err.message || 'Erreur lors de la génération du PDF.'}`;
+      } finally {
+        pdfBtn.disabled = false;
+      }
+    });
+  }
 }
 
 // ---------- Bootstrap ----------

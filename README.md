@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=5`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=6`, `?v=7`…) dans `index.html`
+> `?v=6`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=7`, `?v=8`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -150,6 +150,27 @@ Le bouton **« Exporter le pacing en CSV »** exporte uniquement les lignes coch
 sélectionnée (utile pour un roadbook allégé avec seulement les points clés) ; si aucune ligne n'est cochée,
 il exporte l'intégralité du tableau comme avant.
 
+### Export PDF (roadbook)
+
+Dans l'onglet **Pacing**, le bouton **« 🖨 Générer le PDF »** produit un document A4 téléchargeable
+comprenant :
+
+- un en-tête avec votre logo et le titre « Prévisionnel d'allure pour la course *(nom saisi dans
+  l'onglet Paramètres)* », suivi du kilométrage total, du D+ et du D- ;
+- le profil altimétrique du parcours (aire verte), reconstruit à partir des points GPS de la
+  reconnaissance importée — ou, si une estimation a été rechargée depuis un profil athlète (sans
+  points GPS bruts), un profil approximatif recalculé à partir des D+/D- de chaque segment (signalé
+  comme tel sur le PDF) ;
+- sur ce graphique, un repère visuel (ligne pointillée + point) pour chaque ligne du tableau Pacing
+  dont le champ **Repère** est renseigné, avec son nom, sa distance cumulée et son D+/D- ;
+- un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (type de terrain, distance
+  cumulée, D+, D-, temps de segment et temps cumulé V2).
+
+Renseignez donc au moins un **Repère** dans le tableau Pacing avant de générer le PDF pour que le
+tableau et les annotations du graphique soient utiles. La génération se fait entièrement dans le
+navigateur (librairies jsPDF / jspdf-autotable chargées depuis un CDN), sans envoi de données à un
+serveur.
+
 ## ⚙ Personnalisation
 
 Toutes les tables de coefficients (fatigue, intensité, technicité, conditions, profils) sont éditables dans
@@ -179,6 +200,7 @@ trail-pacing-predictor/
 │   ├── fit-parser.js             Lecteur binaire du format .fit (Garmin FIT)
 │   ├── fit-to-csv.js             Dérivation des 16 colonnes IMPORT_CSV depuis des points GPS bruts
 │   ├── athletes.js               Gestion des profils athlètes et de leurs estimations
+│   ├── pdf-export.js             Génération du PDF roadbook (profil dénivelé + tableau repères)
 │   ├── ui.js                     Rendu des tableaux et formulaires
 │   └── main.js                   État de l'application et câblage des événements
 ├── sample-data/exemple_import.csv  CSV de démonstration
