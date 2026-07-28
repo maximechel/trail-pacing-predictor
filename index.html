@@ -13,17 +13,53 @@
 </header>
 
 <nav class="tabs">
-  <button class="tab-btn active" data-tab="import">1. Import CSV</button>
-  <button class="tab-btn" data-tab="parametres">2. Paramètres</button>
-  <button class="tab-btn" data-tab="segments">3. Segments</button>
-  <button class="tab-btn" data-tab="profils">4. Profil athlète</button>
-  <button class="tab-btn" data-tab="pacing">5. Pacing</button>
+  <button class="tab-btn active" data-tab="fit">1. Import FIT</button>
+  <button class="tab-btn" data-tab="import">2. Import CSV</button>
+  <button class="tab-btn" data-tab="parametres">3. Paramètres</button>
+  <button class="tab-btn" data-tab="segments">4. Segments</button>
+  <button class="tab-btn" data-tab="profils">5. Profil athlète</button>
+  <button class="tab-btn" data-tab="pacing">6. Pacing</button>
 </nav>
 
 <main>
 
+  <!-- ================= TAB 0 : IMPORT FIT ================= -->
+  <section id="tab-fit" class="tab-panel active">
+    <div class="card">
+      <h2>⌚ Convertir un fichier .fit en CSV</h2>
+      <p>
+        Chargez directement l'export <code>.fit</code> de votre montre GPS (Garmin, Wahoo, Suunto, Coros…).
+        L'application lit les points GPS enregistrés (latitude, longitude, altitude, horodatage) et calcule
+        automatiquement les 16 colonnes attendues par l'onglet <strong>Import CSV</strong>
+        (distance, vitesse, pente, lissage sur 5 points, classification plat / montée / descente).
+      </p>
+      <p class="hint">
+        💡 Tout se passe localement dans votre navigateur — le fichier .fit n'est jamais envoyé à un serveur.
+        Cette conversion est une reconstitution fidèle du prétraitement GPS (distance calculée par
+        trigonométrie sphérique entre points GPS successifs), validée par comparaison avec les données de
+        référence de l'outil d'origine.
+      </p>
+
+      <div class="import-controls">
+        <label class="file-btn">
+          ⌚ Charger un fichier .fit
+          <input type="file" id="fit-file-input" accept=".fit" hidden />
+        </label>
+      </div>
+
+      <div id="fit-status" class="status"></div>
+
+      <div id="fit-summary" class="form-grid" style="display:none;"></div>
+
+      <div class="import-controls" id="fit-actions" style="display:none;">
+        <button id="fit-send-btn" class="btn-primary">➔ Envoyer vers l'onglet Import CSV</button>
+        <button id="fit-download-btn" class="btn-secondary">⬇ Télécharger le CSV généré</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= TAB 1 : IMPORT ================= -->
-  <section id="tab-import" class="tab-panel active">
+  <section id="tab-import" class="tab-panel">
     <div class="card">
       <h2>➔ Zone d'import CSV</h2>
       <p>
@@ -198,6 +234,8 @@
 
 <script src="js/data.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/fit-parser.js"></script>
+<script src="js/fit-to-csv.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>

@@ -93,6 +93,79 @@ function renderAll() {
   renderPacingTable(state.pacing, state.settings, state.showAdvanced);
 }
 
+// ---------- Import FIT ----------
+
+let lastFitCsvText = null;
+
+function wireFitTab() {
+  $('#fit-file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = $('#fit-status');
+    const summaryEl = $('#fit-summary');
+    const actionsEl = $('#fit-actions');
+    summaryEl.style.display = 'none';
+    actionsEl.style.display = 'none';
+    statusEl.className = 'status';
+    statusEl.textContent = `⏳ Lecture de ${file.name}…`;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { points, pointCount } = parseFitPoints(reader.result);
+        if (pointCount < 2) {
+          throw new Error("Aucune donnée GPS (latitude/longitude) trouvée dans ce fichier .fit. Vérifiez qu'il s'agit bien d'un enregistrement avec suivi GPS.");
+        }
+        const rows = buildImportRowsFromPoints(points);
+        lastFitCsvText = importRowsToCSVText(rows);
+
+        const distanceKm = (rows[rows.length - 1].distance_cum_m / 1000);
+        const durationMin = rows.reduce((a, r) => a + (r.time_step_s || 0), 0) / 60;
+
+        statusEl.className = 'status ok';
+        statusEl.textContent = `✔ ${pointCount} points GPS lus et convertis avec succès.`;
+
+        summaryEl.innerHTML = '';
+        summaryEl.style.display = 'grid';
+        [
+          ['Points GPS', String(pointCount)],
+          ['Distance estimée', `${fmt(distanceKm, 2)} km`],
+          ['Durée', `${fmt(durationMin, 1)} min`],
+        ].forEach(([label, value]) => {
+          summaryEl.appendChild(el('label', {}, [label, el('input', { type: 'text', value, readonly: 'true' })]));
+        });
+        actionsEl.style.display = 'flex';
+      } catch (err) {
+        statusEl.className = 'status error';
+        statusEl.textContent = `✖ ${err.message}`;
+        lastFitCsvText = null;
+      }
+    };
+    reader.onerror = () => {
+      statusEl.className = 'status error';
+      statusEl.textContent = "✖ Impossible de lire ce fichier.";
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  $('#fit-send-btn').addEventListener('click', () => {
+    if (!lastFitCsvText) return;
+    $('#csv-textarea').value = lastFitCsvText;
+    analyzeCSV(lastFitCsvText);
+  });
+
+  $('#fit-download-btn').addEventListener('click', () => {
+    if (!lastFitCsvText) return;
+    const blob = new Blob(['﻿' + lastFitCsvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'import_gps.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
 // ---------- Import CSV ----------
 
 function analyzeCSV(text) {
@@ -230,6 +303,7 @@ function wirePacingTab() {
 function init() {
   state.settings = loadSettings();
   initTabs();
+  wireFitTab();
   wireImportTab();
   wireParametresTab();
   wirePacingTab();

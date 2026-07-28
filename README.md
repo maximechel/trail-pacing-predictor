@@ -1,9 +1,9 @@
 # 🏔 Prédicteur de Pacing Trail — V3 (web app)
 
 Application web statique reproduisant fidèlement le classeur Excel **« V3 — Prédicteur de temps trail »** :
-import d'un CSV GPS traité, segmentation automatique, profil athlète force-vitesse / descente, et moteur de
-pacing (temps prévisionnels V1/V2 par segment) avec réglages d'intensité, de technicité, de conditions et de
-fatigue.
+import d'un fichier **.fit** (montre GPS) ou d'un CSV GPS déjà traité, segmentation automatique, profil
+athlète force-vitesse / descente, et moteur de pacing (temps prévisionnels V1/V2 par segment) avec réglages
+d'intensité, de technicité, de conditions et de fatigue.
 
 Tout le calcul s'exécute **localement dans le navigateur** — aucune donnée n'est envoyée à un serveur.
 Aucune dépendance, aucun build : HTML + CSS + JavaScript vanilla.
@@ -56,12 +56,34 @@ L'application suit exactement le même pipeline que les onglets du classeur Exce
 
 | Onglet Excel | Étape dans l'app | Description |
 |---|---|---|
-| `IMPORT_CSV` | **1. Import CSV** | Collez ou chargez le CSV GPS traité (16 colonnes, séparateur `;`) |
+| *(nouveau, sans équivalent Excel)* | **1. Import FIT** | Conversion locale d'un fichier `.fit` (montre GPS) vers le format CSV 16 colonnes attendu par l'étape suivante |
+| `IMPORT_CSV` | **2. Import CSV** | Collez ou chargez le CSV GPS traité (16 colonnes, séparateur `;`) |
 | `TRAITEMENT` | *(interne)* | Segmentation automatique par regroupement des points GPS consécutifs de même type (`segment_type_smooth`) |
-| `SEGMENTS` | **3. Segments** | Agrégation par segment : distance, D+/D-, durée, vitesse et pente moyennes |
-| `PROFILS` | **4. Profil athlète** | Classification automatique du profil force-vitesse (Grimpeur / Équilibré / Rouleur) et du profil descente |
-| `PARAMÈTRES` | **2. Paramètres** | Infos course (distance/D+/D- calculées auto depuis le CSV), catégorie, et toutes les tables de coefficients éditables |
-| `PACING` | **5. Pacing** | Temps prévisionnels par segment : V1 = sans profil athlète, V2 = ajusté au profil (grimpeur/rouleur + descente) |
+| `SEGMENTS` | **4. Segments** | Agrégation par segment : distance, D+/D-, durée, vitesse et pente moyennes |
+| `PROFILS` | **5. Profil athlète** | Classification automatique du profil force-vitesse (Grimpeur / Équilibré / Rouleur) et du profil descente |
+| `PARAMÈTRES` | **3. Paramètres** | Infos course (distance/D+/D- calculées auto depuis le CSV), catégorie, et toutes les tables de coefficients éditables |
+| `PACING` | **6. Pacing** | Temps prévisionnels par segment : V1 = sans profil athlète, V2 = ajusté au profil (grimpeur/rouleur + descente) |
+
+### Import FIT → CSV (nouveau)
+
+L'onglet **1. Import FIT** lit directement le fichier `.fit` exporté par une montre GPS (Garmin, Wahoo,
+Suunto, Coros…) et reconstruit localement, dans le navigateur, les 16 colonnes du format CSV attendu par
+l'étape suivante :
+
+- lecture binaire du format FIT (définitions/données, en-têtes normaux et « timestamp compressé ») — aucune
+  librairie externe, tout est fait par `js/fit-parser.js` ;
+- extraction des points GPS (latitude, longitude, altitude, horodatage) depuis les messages `record` ;
+- calcul de la distance entre points par trigonométrie sphérique (formule de Haversine), du dénivelé, de la
+  vitesse, de la pente, du lissage sur 5 points et de la classification plat / montée / descente
+  (seuils : pente > 3 % = montée, < -3 % = descente, sinon plat) — méthode validée par comparaison exacte
+  avec les colonnes déjà calculées d'une reconnaissance GPS réelle.
+
+Une fois converti, le CSV généré peut être envoyé directement vers l'onglet **Import CSV** (bouton
+« Envoyer vers l'onglet Import CSV ») ou téléchargé pour archivage.
+
+> Limite connue : si votre montre écrit occasionnellement des points sans coordonnées GPS (perte de signal),
+> ces points sont simplement ignorés ; le calcul de distance/temps se fait alors entre les deux points
+> valides encadrants.
 
 ### Format du CSV attendu
 
@@ -104,11 +126,13 @@ configuration d'origine du classeur Excel.
 
 ```
 trail-pacing-predictor/
-├── index.html                    Page principale (5 onglets)
+├── index.html                    Page principale (6 onglets)
 ├── css/style.css                 Styles
 ├── js/
 │   ├── data.js                   Tables de coefficients par défaut
 │   ├── engine.js                 Moteur de calcul (port fidèle des formules Excel)
+│   ├── fit-parser.js             Lecteur binaire du format .fit (Garmin FIT)
+│   ├── fit-to-csv.js             Dérivation des 16 colonnes IMPORT_CSV depuis des points GPS bruts
 │   ├── ui.js                     Rendu des tableaux et formulaires
 │   └── main.js                   État de l'application et câblage des événements
 ├── sample-data/exemple_import.csv  CSV de démonstration
@@ -119,4 +143,8 @@ trail-pacing-predictor/
 
 Le moteur de calcul (`js/engine.js`) a été validé numériquement contre les valeurs réellement calculées par le
 classeur Excel d'origine (segments, profils athlète, temps V1/V2 et totaux de course) : correspondance exacte
-sur l'ensemble des colonnes testées.
+sur l'ensemble des colonnes testées. La reconstruction des colonnes GPS à partir de points bruts
+(`js/fit-to-csv.js`) a elle aussi été validée en reproduisant, à partir de coordonnées lat/lon/altitude/temps
+réelles, les colonnes déjà calculées d'une reconnaissance GPS de référence (correspondance exacte, y compris
+sur la classification plat/montée/descente). Le lecteur `.fit` (`js/fit-parser.js`) a été testé sur des
+fichiers FIT synthétiques couvrant les en-têtes normaux et les en-têtes à timestamp compressé.
