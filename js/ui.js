@@ -368,6 +368,89 @@ function pacingToCSVString(pacing, rowMeta = {}) {
   return lines.join('\n');
 }
 
+// ---------- Athlètes ----------
+
+/**
+ * @param athletes           liste des profils
+ * @param activeAthleteId    id de l'athlète actif (ou null)
+ * @param handlers           { onSelect(id), onEdit(id), onDelete(id) }
+ */
+function renderAthletesList(athletes, activeAthleteId, handlers) {
+  const container = $('#athletes-list');
+  container.innerHTML = '';
+  $('#active-athlete-name').textContent = (() => {
+    const a = athletes.find((x) => x.id === activeAthleteId);
+    return a ? athleteFullName(a) : 'aucun';
+  })();
+
+  if (athletes.length === 0) {
+    container.appendChild(el('p', { class: 'hint' }, "Aucun athlète pour l'instant — créez-en un avec le bouton ci-dessus."));
+    return;
+  }
+
+  athletes.forEach((athlete) => {
+    const isActive = athlete.id === activeAthleteId;
+    const card = el('div', { class: 'athlete-card' + (isActive ? ' active' : '') }, [
+      el('div', { class: 'athlete-card-name' }, athleteFullName(athlete)),
+      el('div', { class: 'athlete-card-details' }, [
+        athlete.age ? `${athlete.age} ans` : null,
+        athlete.tailleCm ? `${athlete.tailleCm} cm` : null,
+        athlete.poidsKg ? `${athlete.poidsKg} kg` : null,
+        athlete.vmaKmh ? `VMA ${athlete.vmaKmh} km/h` : null,
+      ].filter(Boolean).join(' · ') || 'Informations non renseignées'),
+      el('div', { class: 'athlete-card-details' }, `${athlete.estimations.length} estimation${athlete.estimations.length > 1 ? 's' : ''} enregistrée${athlete.estimations.length > 1 ? 's' : ''}`),
+    ]);
+
+    const btnSelect = el('button', { class: 'btn-secondary' }, isActive ? '✔ Actif' : 'Sélectionner');
+    btnSelect.addEventListener('click', () => handlers.onSelect(athlete.id));
+    const btnEdit = el('button', { class: 'btn-secondary' }, '✎ Modifier');
+    btnEdit.addEventListener('click', () => handlers.onEdit(athlete.id));
+    const btnDelete = el('button', { class: 'btn-secondary' }, '🗑');
+    btnDelete.addEventListener('click', () => handlers.onDelete(athlete.id));
+
+    const actions = el('div', { class: 'import-controls', style: 'margin-top:10px;' }, [btnSelect, btnEdit, btnDelete]);
+    card.appendChild(actions);
+    container.appendChild(card);
+  });
+}
+
+/**
+ * @param athlete   athlète actif (ou null)
+ * @param handlers  { onLoad(estimationId), onDelete(estimationId) }
+ */
+function renderEstimationsTable(athlete, handlers) {
+  const card = $('#estimations-card');
+  const tbody = $('#estimations-table tbody');
+  tbody.innerHTML = '';
+
+  if (!athlete || athlete.estimations.length === 0) {
+    card.style.display = athlete ? 'block' : 'none';
+    if (athlete) {
+      tbody.appendChild(el('tr', {}, el('td', { colspan: '6' }, 'Aucune estimation enregistrée pour cet athlète.')));
+    }
+    return;
+  }
+
+  card.style.display = 'block';
+  athlete.estimations.forEach((est) => {
+    const dateStr = new Date(est.dateCreated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+    const totals = est.pacingTotals;
+    const tr = el('tr', {}, [
+      el('td', {}, dateStr),
+      el('td', {}, est.courseNom || '—'),
+      el('td', {}, est.auto ? `${fmt(est.auto.distanceTotaleKm, 1)} km` : '—'),
+      el('td', {}, est.auto ? `${fmt(est.auto.dPlusTotal, 0)} m` : '—'),
+      el('td', {}, totals ? totals.cumulV2HM : '—'),
+    ]);
+    const btnLoad = el('button', { class: 'btn-secondary' }, '📂 Charger');
+    btnLoad.addEventListener('click', () => handlers.onLoad(est.id));
+    const btnDelete = el('button', { class: 'btn-secondary' }, '🗑');
+    btnDelete.addEventListener('click', () => handlers.onDelete(est.id));
+    tr.appendChild(el('td', {}, [btnLoad, btnDelete]));
+    tbody.appendChild(tr);
+  });
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { PACING_COLUMNS, pacingToCSVString, pacingSpecialValue };
+  module.exports = { PACING_COLUMNS, pacingToCSVString, pacingSpecialValue, renderAthletesList, renderEstimationsTable };
 }

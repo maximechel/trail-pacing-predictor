@@ -9,6 +9,9 @@
   --accent-montee: #d9762b;
   --accent-plat: #4a7fb5;
   --accent-descente: #3f9450;
+  --brand-blue: #0505c5;
+  --brand-blue-dark: #030389;
+  --brand-pink: #ff216a;
   --radius: 10px;
 }
 
@@ -23,11 +26,17 @@ body {
 }
 
 .app-header {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-blue-dark) 100%);
   color: white;
-  padding: 24px 20px;
+  padding: 22px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
   text-align: center;
 }
+.app-header .header-text { text-align: left; }
+.app-header .logo-img { height: 56px; width: auto; flex-shrink: 0; }
 .app-header h1 { margin: 0 0 6px; font-size: 1.6rem; }
 .app-header .version { font-size: 0.9rem; opacity: 0.75; font-weight: normal; }
 .app-header .subtitle { margin: 0; opacity: 0.9; font-size: 0.95rem; }
@@ -54,7 +63,7 @@ body {
   font-weight: 600;
 }
 .tab-btn:hover { background: var(--bg); }
-.tab-btn.active { background: var(--primary); color: white; }
+.tab-btn.active { background: var(--brand-blue); color: white; }
 
 main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 
@@ -194,6 +203,21 @@ tr[data-seg]:has(input[type="checkbox"]:checked) { background: #eaf3ee; }
 .profil-item .label { font-size: 0.78rem; color: var(--muted); }
 .profil-item .value { font-size: 1.25rem; font-weight: 700; margin-top: 2px; }
 
+.athlete-card {
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+}
+.athlete-card.active {
+  border-color: var(--brand-blue);
+  box-shadow: 0 0 0 1px var(--brand-blue);
+}
+.athlete-card-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+.athlete-card-details { font-size: 0.82rem; color: var(--muted); margin-bottom: 2px; }
+.athlete-card .import-controls { flex-wrap: wrap; gap: 6px; }
+.athlete-card .import-controls button { padding: 6px 10px; font-size: 0.8rem; }
+
 .app-footer {
   text-align: center;
   padding: 24px;
@@ -205,6 +229,9 @@ tr[data-seg]:has(input[type="checkbox"]:checked) { background: #eaf3ee; }
 table#pacing-table:not(.show-advanced) .adv { display: none; }
 
 @media (max-width: 640px) {
+  .app-header { flex-direction: column; gap: 10px; }
+  .app-header .header-text { text-align: center; }
+  .app-header .logo-img { height: 42px; }
   .app-header h1 { font-size: 1.25rem; }
   .tab-btn { padding: 8px 10px; font-size: 0.8rem; }
 }

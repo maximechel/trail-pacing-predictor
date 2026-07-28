@@ -2,6 +2,8 @@
 
 const STORAGE_KEY_SETTINGS = 'trail-pacing-predictor:settings';
 const STORAGE_KEY_STATE = 'trail-pacing-predictor:state';
+const STORAGE_KEY_LOGO = 'trail-pacing-predictor:logo';
+const DEFAULT_LOGO_SRC = 'assets/logo.png';
 
 const state = {
   settings: null,       // tables de coefficients (cf. data.js), modifiable par l'utilisateur
@@ -16,6 +18,9 @@ const state = {
   rowMeta: {},            // { [numero]: { selected, label } } — purement présentationnel (repères, export)
   pacing: null,
   showAdvanced: false,
+  athletes: [],           // profils athlètes (cf. athletes.js)
+  activeAthleteId: null,
+  editingAthleteId: null, // id en cours de modification dans le formulaire (null = création)
 };
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -40,14 +45,14 @@ function suggestCategorie(distanceKm) {
 }
 
 function recomputeAll() {
+  // Si un CSV brut est chargé, on recalcule tout depuis les points GPS. Sinon on garde
+  // segments/profils/auto tels quels : c'est le cas quand une estimation sauvegardée a été
+  // rechargée depuis un profil athlète (elle ne contient pas les points GPS bruts, déjà agrégés).
   if (state.csvRows) {
     state.auto = computeCourseAutoFields(state.csvRows);
     const grouped = assignSegmentGroups(state.csvRows);
     state.segments = buildSegments(grouped);
     state.profils = computeProfils(state.segments, state.settings);
-  } else {
-    state.segments = [];
-    state.profils = null;
   }
 
   state.pacing = state.segments.length
@@ -93,6 +98,29 @@ function renderAll() {
 
   renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
   updateExportButtonLabel();
+
+  // Athlètes
+  renderAthletesList(state.athletes, state.activeAthleteId, {
+    onSelect: selectAthlete, onEdit: editAthlete, onDelete: deleteAthleteUI,
+  });
+  const activeAthlete = state.athletes.find((a) => a.id === state.activeAthleteId) || null;
+  renderEstimationsTable(activeAthlete, { onLoad: loadEstimation, onDelete: deleteEstimationUI });
+  updateSaveEstimationSection(activeAthlete);
+}
+
+function updateSaveEstimationSection(activeAthlete) {
+  const btn = $('#save-estimation-btn');
+  const hint = $('#save-estimation-hint');
+  if (activeAthlete) {
+    btn.style.display = state.pacing ? 'inline-block' : 'none';
+    hint.style.display = state.pacing ? 'none' : 'block';
+    hint.textContent = 'Importez une reconnaissance GPS (onglet Import) pour pouvoir enregistrer une estimation.';
+    $('#save-estimation-athlete-name').textContent = athleteFullName(activeAthlete);
+  } else {
+    btn.style.display = 'none';
+    hint.style.display = 'block';
+    hint.textContent = "Sélectionnez un athlète actif dans l'onglet Athlètes pour pouvoir enregistrer cette estimation dans son historique.";
+  }
 }
 
 function updateExportButtonLabel() {
@@ -102,6 +130,114 @@ function updateExportButtonLabel() {
   btn.textContent = nSelected > 0
     ? `⬇ Exporter la sélection (${nSelected} ligne${nSelected > 1 ? 's' : ''})`
     : '⬇ Exporter le pacing en CSV';
+}
+
+// ---------- Athlètes ----------
+
+const STORAGE_KEY_ACTIVE_ATHLETE = 'trail-pacing-predictor:activeAthlete';
+
+function persistAthletes() {
+  saveAthletes(state.athletes);
+}
+
+function selectAthlete(id) {
+  state.activeAthleteId = (state.activeAthleteId === id) ? null : id; // re-cliquer désélectionne
+  try { localStorage.setItem(STORAGE_KEY_ACTIVE_ATHLETE, state.activeAthleteId || ''); } catch (e) { /* ignore */ }
+  renderAll();
+}
+
+function editAthlete(id) {
+  const athlete = state.athletes.find((a) => a.id === id);
+  if (!athlete) return;
+  state.editingAthleteId = id;
+  $('#athlete-form-id').value = id;
+  $('#athlete-prenom').value = athlete.prenom || '';
+  $('#athlete-nom').value = athlete.nom || '';
+  $('#athlete-age').value = athlete.age || '';
+  $('#athlete-taille').value = athlete.tailleCm || '';
+  $('#athlete-poids').value = athlete.poidsKg || '';
+  $('#athlete-vma').value = athlete.vmaKmh || '';
+  $('#athlete-form').style.display = 'grid';
+}
+
+function deleteAthleteUI(id) {
+  const athlete = state.athletes.find((a) => a.id === id);
+  if (!athlete) return;
+  if (!confirm(`Supprimer l'athlète ${athleteFullName(athlete)} et ses ${athlete.estimations.length} estimation(s) ?`)) return;
+  state.athletes = deleteAthlete(state.athletes, id);
+  if (state.activeAthleteId === id) state.activeAthleteId = null;
+  persistAthletes();
+  renderAll();
+}
+
+function loadEstimation(estimationId) {
+  const athlete = state.athletes.find((a) => a.id === state.activeAthleteId);
+  if (!athlete) return;
+  const est = athlete.estimations.find((e) => e.id === estimationId);
+  if (!est) return;
+
+  state.csvRows = null; // pas de points GPS bruts dans l'instantané : on repart des segments déjà calculés
+  state.courseNom = est.courseNom;
+  state.categorie = est.categorie;
+  state.auto = { ...est.auto };
+  state.segments = est.segments;
+  state.profils = est.profils;
+  state.globalDefaults = { ...est.globalDefaults };
+  state.rowOverrides = JSON.parse(JSON.stringify(est.rowOverrides || {}));
+  state.rowMeta = JSON.parse(JSON.stringify(est.rowMeta || {}));
+
+  recomputeAll();
+  goToTab('pacing');
+}
+
+function deleteEstimationUI(estimationId) {
+  if (!confirm('Supprimer cette estimation ?')) return;
+  deleteEstimation(state.athletes, state.activeAthleteId, estimationId);
+  persistAthletes();
+  renderAll();
+}
+
+function resetAthleteForm() {
+  state.editingAthleteId = null;
+  $('#athlete-form').reset();
+  $('#athlete-form-id').value = '';
+  $('#athlete-form').style.display = 'none';
+}
+
+function wireAthletesTab() {
+  $('#athlete-new-btn').addEventListener('click', () => {
+    resetAthleteForm();
+    $('#athlete-form').style.display = 'grid';
+  });
+
+  $('#athlete-form-cancel').addEventListener('click', () => resetAthleteForm());
+
+  $('#athlete-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const data = {
+      prenom: $('#athlete-prenom').value.trim(),
+      nom: $('#athlete-nom').value.trim(),
+      age: parseInt($('#athlete-age').value, 10) || null,
+      tailleCm: parseFloat($('#athlete-taille').value) || null,
+      poidsKg: parseFloat($('#athlete-poids').value) || null,
+      vmaKmh: parseFloat($('#athlete-vma').value) || null,
+    };
+    if (!data.prenom && !data.nom) {
+      alert('Merci de renseigner au moins un prénom ou un nom.');
+      return;
+    }
+
+    const editingId = $('#athlete-form-id').value;
+    if (editingId) {
+      const athlete = state.athletes.find((a) => a.id === editingId);
+      if (athlete) Object.assign(athlete, data);
+    } else {
+      state.athletes.push(createAthlete(data));
+    }
+    persistAthletes();
+    resetAthleteForm();
+    renderAll();
+  });
 }
 
 // ---------- Import FIT ----------
@@ -264,6 +400,35 @@ function wireParametresTab() {
     saveSettings();
     recomputeAll();
   });
+
+  $('#logo-file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      try {
+        localStorage.setItem(STORAGE_KEY_LOGO, dataUrl);
+      } catch (err) {
+        alert("Ce logo est trop volumineux pour être sauvegardé dans le navigateur. Essayez une image plus légère.");
+        return;
+      }
+      $('#app-logo').src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('#logo-reset-btn').addEventListener('click', () => {
+    localStorage.removeItem(STORAGE_KEY_LOGO);
+    $('#app-logo').src = DEFAULT_LOGO_SRC;
+  });
+}
+
+function loadLogo() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_LOGO);
+    if (saved) $('#app-logo').src = saved;
+  } catch (e) { /* ignore */ }
 }
 
 // ---------- Pacing ----------
@@ -342,17 +507,36 @@ function wirePacingTab() {
     a.click();
     URL.revokeObjectURL(url);
   });
+
+  $('#save-estimation-btn').addEventListener('click', () => {
+    if (!state.activeAthleteId || !state.pacing) return;
+    const snapshot = buildEstimationSnapshot(state);
+    addEstimationToAthlete(state.athletes, state.activeAthleteId, snapshot);
+    persistAthletes();
+    const statusEl = $('#save-estimation-status');
+    statusEl.className = 'status ok';
+    statusEl.textContent = `✔ Estimation enregistrée dans le profil de ${$('#save-estimation-athlete-name').textContent}.`;
+  });
 }
 
 // ---------- Bootstrap ----------
 
 function init() {
   state.settings = loadSettings();
+  state.athletes = loadAthletes();
+  try {
+    const savedActive = localStorage.getItem(STORAGE_KEY_ACTIVE_ATHLETE);
+    if (savedActive && state.athletes.some((a) => a.id === savedActive)) state.activeAthleteId = savedActive;
+  } catch (e) { /* ignore */ }
+
   initTabs();
+  wireAthletesTab();
   wireFitTab();
   wireImportTab();
   wireParametresTab();
   wirePacingTab();
+  loadLogo();
+  $('#app-logo').addEventListener('error', () => { $('#app-logo').style.display = 'none'; });
   renderAll();
 }
 

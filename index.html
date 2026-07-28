@@ -8,23 +8,83 @@
 </head>
 <body>
 <header class="app-header">
-  <h1>🏔 Prédicteur de Pacing Trail <span class="version">V3</span></h1>
-  <p class="subtitle" id="course-summary">Importez un CSV de reconnaissance GPS pour commencer.</p>
+  <img id="app-logo" class="logo-img" src="assets/logo.png" alt="Logo" />
+  <div class="header-text">
+    <h1>🏔 Prédicteur de Pacing Trail <span class="version">V3</span></h1>
+    <p class="subtitle" id="course-summary">Importez un CSV de reconnaissance GPS pour commencer.</p>
+  </div>
 </header>
 
 <nav class="tabs">
-  <button class="tab-btn active" data-tab="fit">1. Import FIT</button>
-  <button class="tab-btn" data-tab="import">2. Import CSV</button>
-  <button class="tab-btn" data-tab="parametres">3. Paramètres</button>
-  <button class="tab-btn" data-tab="segments">4. Segments</button>
-  <button class="tab-btn" data-tab="profils">5. Profil athlète</button>
-  <button class="tab-btn" data-tab="pacing">6. Pacing</button>
+  <button class="tab-btn active" data-tab="athletes">1. Athlètes</button>
+  <button class="tab-btn" data-tab="fit">2. Import FIT</button>
+  <button class="tab-btn" data-tab="import">3. Import CSV</button>
+  <button class="tab-btn" data-tab="parametres">4. Paramètres</button>
+  <button class="tab-btn" data-tab="segments">5. Segments</button>
+  <button class="tab-btn" data-tab="profils">6. Profil GPS</button>
+  <button class="tab-btn" data-tab="pacing">7. Pacing</button>
 </nav>
 
 <main>
 
+  <!-- ================= TAB -1 : ATHLÈTES ================= -->
+  <section id="tab-athletes" class="tab-panel active">
+    <div class="card">
+      <h2>🏃 Profils athlètes</h2>
+      <p class="hint">
+        Créez un profil par athlète pour lequel vous réalisez des prédictions de pacing. Sélectionnez un
+        athlète actif avant d'importer une reconnaissance : vous pourrez alors enregistrer l'estimation dans
+        son historique, et en garder plusieurs au fil du temps.
+      </p>
+      <button id="athlete-new-btn" class="btn-primary">➕ Nouvel athlète</button>
+
+      <form id="athlete-form" class="form-grid" style="display:none; margin-top:16px;">
+        <input type="hidden" id="athlete-form-id" />
+        <label>Prénom
+          <input type="text" id="athlete-prenom" />
+        </label>
+        <label>Nom
+          <input type="text" id="athlete-nom" />
+        </label>
+        <label>Âge
+          <input type="number" id="athlete-age" min="0" step="1" />
+        </label>
+        <label>Taille (cm)
+          <input type="number" id="athlete-taille" min="0" step="1" />
+        </label>
+        <label>Poids (kg)
+          <input type="number" id="athlete-poids" min="0" step="0.1" />
+        </label>
+        <label>VMA (km/h)
+          <input type="number" id="athlete-vma" min="0" step="0.1" />
+        </label>
+        <div class="import-controls" style="grid-column: 1 / -1;">
+          <button type="submit" id="athlete-form-save" class="btn-primary">💾 Enregistrer</button>
+          <button type="button" id="athlete-form-cancel" class="btn-secondary">Annuler</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>👤 Athlète actif : <span id="active-athlete-name">aucun</span></h2>
+      <div id="athletes-list" class="profil-grid"></div>
+    </div>
+
+    <div class="card" id="estimations-card" style="display:none;">
+      <h2>📜 Estimations enregistrées</h2>
+      <div class="table-wrap">
+        <table id="estimations-table">
+          <thead>
+            <tr><th>Date</th><th>Course</th><th>Distance</th><th>D+</th><th>Temps prévu (V2)</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= TAB 0 : IMPORT FIT ================= -->
-  <section id="tab-fit" class="tab-panel active">
+  <section id="tab-fit" class="tab-panel">
     <div class="card">
       <h2>⌚ Convertir un fichier .fit en CSV</h2>
       <p>
@@ -95,6 +155,18 @@
 
   <!-- ================= TAB 2 : PARAMÈTRES ================= -->
   <section id="tab-parametres" class="tab-panel">
+    <div class="card">
+      <h2>🖼 Apparence — logo du bandeau</h2>
+      <p class="hint">Remplacez le logo affiché en haut de l'application. Il est sauvegardé dans votre navigateur (aucun fichier à repousser sur GitHub).</p>
+      <div class="import-controls">
+        <label class="file-btn">
+          🖼 Charger un logo
+          <input type="file" id="logo-file-input" accept="image/*" hidden />
+        </label>
+        <button id="logo-reset-btn" class="btn-secondary">↺ Logo par défaut</button>
+      </div>
+    </div>
+
     <div class="card">
       <h2>📋 Informations sur la course</h2>
       <div class="form-grid">
@@ -224,6 +296,13 @@
       </div>
       <button id="export-csv-btn" class="btn-primary">⬇ Exporter le pacing en CSV</button>
     </div>
+
+    <div class="card">
+      <h2>💾 Enregistrer cette estimation</h2>
+      <p id="save-estimation-hint" class="hint">Sélectionnez un athlète actif dans l'onglet Athlètes pour pouvoir enregistrer cette estimation dans son historique.</p>
+      <button id="save-estimation-btn" class="btn-primary" style="display:none;">💾 Enregistrer dans le profil de <span id="save-estimation-athlete-name"></span></button>
+      <div id="save-estimation-status" class="status"></div>
+    </div>
   </section>
 
 </main>
@@ -236,6 +315,7 @@
 <script src="js/engine.js"></script>
 <script src="js/fit-parser.js"></script>
 <script src="js/fit-to-csv.js"></script>
+<script src="js/athletes.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>
