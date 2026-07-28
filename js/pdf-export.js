@@ -53,6 +53,31 @@ function imageElementToDataURL(imgEl) {
   });
 }
 
+/**
+ * Charge une image du dossier `assets/` (logo de pied de page, fixe, non lié au logo d'en-tête
+ * personnalisable) et la convertit en dataURL PNG. Résout `null` en cas d'échec (fichier absent…) —
+ * le PDF est alors généré sans logo de pied de page plutôt que d'échouer.
+ */
+function loadAssetImageAsDataURL(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve({ dataUrl: canvas.toDataURL('image/png'), w: img.naturalWidth, h: img.naturalHeight });
+      } catch (e) {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
 function getScaledDims(imgEl, maxHeight) {
   const nw = imgEl.naturalWidth || 1;
   const nh = imgEl.naturalHeight || 1;
@@ -343,13 +368,37 @@ async function generatePacingPDF(state) {
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
       alternateRowStyles: { fillColor: [244, 246, 245] },
       styles: { fontSize: 9, cellPadding: 2.5 },
-      margin: { left: marginX, right: marginX },
+      margin: { left: marginX, right: marginX, bottom: 26 },
     });
   }
 
-  doc.setFontSize(8);
-  doc.setTextColor(160, 160, 160);
-  doc.text('Généré avec le Prédicteur de Pacing Trail — calcul local, sans envoi de données.', marginX, doc.internal.pageSize.getHeight() - 8);
+  // ---- Bandeau de pied de page : logo + coordonnées ----
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const footerLogo = await loadAssetImageAsDataURL('assets/footer-logo.png');
+  const footerTop = pageHeight - 22;
+
+  doc.setDrawColor(225, 230, 227);
+  doc.setLineWidth(0.3);
+  doc.line(marginX, footerTop, pageWidth - marginX, footerTop);
+
+  let footerTextX = marginX;
+  if (footerLogo) {
+    const logoH = 13;
+    const logoW = logoH * (footerLogo.w / footerLogo.h);
+    try { doc.addImage(footerLogo.dataUrl, 'PNG', marginX, footerTop + 4.5, logoW, logoH); } catch (e) { /* ignore */ }
+    footerTextX = marginX + logoW + 6;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(31, 42, 36);
+  doc.text('Maxime CHELDA', footerTextX, footerTop + 9);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(90, 90, 90);
+  doc.text('Préparateur physique   ·   maxime@ruthene-coachin.fr   ·   06.32.19.57.79', footerTextX, footerTop + 14.5);
+  doc.setTextColor(0, 0, 0);
 
   doc.save(`pacing-${slugify(state.courseNom)}.pdf`);
 }

@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=8`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=9`, `?v=10`…) dans `index.html`
+> `?v=9`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=10`, `?v=11`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -168,7 +168,9 @@ comprenant :
   temps du segment et temps cumulé). Le temps du segment est calculé très exactement entre ce
   repère et le précédent repère renseigné (et non le seul segment automatique sur lequel il tombe),
   ce qui donne un temps de trajet exact entre deux points du roadbook même s'il y a des segments
-  intermédiaires non nommés.
+  intermédiaires non nommés ;
+- un bandeau de pied de page avec le logo Ruthene Coach'in — Pôle sport & santé
+  (`assets/footer-logo.png`) et les coordonnées du préparateur physique.
 
 Renseignez donc au moins un **Repère** dans le tableau Pacing avant de générer le PDF pour que le
 tableau et les annotations du graphique soient utiles. La génération se fait entièrement dans le
