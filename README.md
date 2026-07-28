@@ -39,6 +39,11 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
+> ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
+> `?v=5`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=6`, `?v=7`…) dans `index.html`
+> avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
+> l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
+
 ## 🖥 Utilisation en local
 
 Ouvrir `index.html` directement dans un navigateur fonctionne pour l'essentiel, mais le bouton **« Charger un
