@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🏔 Prédicteur de Pacing Trail — V3</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="app-header">
+  <h1>🏔 Prédicteur de Pacing Trail <span class="version">V3</span></h1>
+  <p class="subtitle" id="course-summary">Importez un CSV de reconnaissance GPS pour commencer.</p>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="import">1. Import CSV</button>
+  <button class="tab-btn" data-tab="parametres">2. Paramètres</button>
+  <button class="tab-btn" data-tab="segments">3. Segments</button>
+  <button class="tab-btn" data-tab="profils">4. Profil athlète</button>
+  <button class="tab-btn" data-tab="pacing">5. Pacing</button>
+</nav>
+
+<main>
+
+  <!-- ================= TAB 1 : IMPORT ================= -->
+  <section id="tab-import" class="tab-panel active">
+    <div class="card">
+      <h2>➔ Zone d'import CSV</h2>
+      <p>
+        Collez votre CSV brut (GPS traité) ci-dessous, ou chargez un fichier.
+        Format attendu&nbsp;: séparateur <code>;</code>, encodage UTF-8, <strong>16 colonnes</strong>
+        (<code>point_index, time, latitude, longitude, altitude_m, distance_step_m, distance_cum_m,
+        time_step_s, speed_m_s, speed_km_h, elevation_delta_m, slope_percent_raw, segment_type_raw,
+        slope_percent_smooth_5pts, speed_km_h_smooth_5pts, segment_type_smooth</code>).
+      </p>
+      <p class="hint">
+        💡 Ce CSV est le même format « GPS traité » que celui utilisé par l'outil Excel d'origine.
+        Il est généralement produit par un script d'analyse de trace GPX (distance, pente, vitesse et
+        segmentation lissées sur 5 points).
+      </p>
+
+      <div class="import-controls">
+        <label class="file-btn">
+          📂 Charger un fichier .csv
+          <input type="file" id="csv-file-input" accept=".csv,text/csv" hidden />
+        </label>
+        <button id="load-example-btn" class="btn-secondary">🎯 Charger un exemple</button>
+        <button id="clear-btn" class="btn-secondary">🗑 Effacer</button>
+      </div>
+
+      <textarea id="csv-textarea" rows="10" placeholder="point_index;time;latitude;longitude;altitude_m;distance_step_m;distance_cum_m;time_step_s;speed_m_s;speed_km_h;elevation_delta_m;slope_percent_raw;segment_type_raw;slope_percent_smooth_5pts;speed_km_h_smooth_5pts;segment_type_smooth
+1;2026-04-22T13:31:34+00:00;44.384597;2.709974;598.6;0;0;;;;;;;0;4.64;plat
+..."></textarea>
+
+      <button id="analyze-btn" class="btn-primary">⚙ Analyser le CSV</button>
+      <div id="import-status" class="status"></div>
+    </div>
+  </section>
+
+  <!-- ================= TAB 2 : PARAMÈTRES ================= -->
+  <section id="tab-parametres" class="tab-panel">
+    <div class="card">
+      <h2>📋 Informations sur la course</h2>
+      <div class="form-grid">
+        <label>Nom de la course
+          <input type="text" id="param-nom" value="Trail de reconnaissance 2026" />
+        </label>
+        <label>Distance totale (auto)
+          <input type="text" id="param-distance" readonly />
+        </label>
+        <label>D+ total (auto)
+          <input type="text" id="param-dplus" readonly />
+        </label>
+        <label>D- total (auto)
+          <input type="text" id="param-dminus" readonly />
+        </label>
+        <label>Catégorie de course
+          <select id="param-categorie"></select>
+        </label>
+        <label>Facteur fatigue (k)
+          <input type="text" id="param-k" readonly />
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚙ Tables de coefficients (avancé)</h2>
+      <p class="hint">Ces valeurs reproduisent l'onglet PARAMÈTRES du fichier Excel. Modifiez-les si besoin — elles sont sauvegardées automatiquement dans votre navigateur.</p>
+
+      <details open>
+        <summary>💪 Facteurs de fatigue</summary>
+        <table class="coef-table" id="table-fatigue"></table>
+      </details>
+
+      <details>
+        <summary>⚡ Coefficients d'intensité</summary>
+        <table class="coef-table" id="table-intensite"></table>
+      </details>
+
+      <details>
+        <summary>🗻 Coefficients de technicité</summary>
+        <table class="coef-table" id="table-technicite"></table>
+      </details>
+
+      <details>
+        <summary>🌦 Coefficients conditions terrain / météo</summary>
+        <table class="coef-table" id="table-conditions"></table>
+      </details>
+
+      <details>
+        <summary>🧬 Coefficients profil force-vitesse</summary>
+        <table class="coef-table" id="table-profil-fv"></table>
+      </details>
+
+      <details>
+        <summary>🏔 Coefficients profil descente</summary>
+        <table class="coef-table" id="table-profil-desc"></table>
+      </details>
+
+      <button id="reset-settings-btn" class="btn-secondary">↺ Réinitialiser aux valeurs par défaut</button>
+    </div>
+  </section>
+
+  <!-- ================= TAB 3 : SEGMENTS ================= -->
+  <section id="tab-segments" class="tab-panel">
+    <div class="card">
+      <h2>📊 Segments — agrégation automatique depuis GPS</h2>
+      <div class="table-wrap">
+        <table id="segments-table">
+          <thead>
+            <tr>
+              <th>N° seg</th><th>Type</th><th>Distance (km)</th><th>D+ (m)</th><th>D- (m)</th>
+              <th>Durée GPS (min)</th><th>Vitesse moy (km/h)</th><th>Pente moy (%)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TAB 4 : PROFILS ================= -->
+  <section id="tab-profils" class="tab-panel">
+    <div class="card">
+      <h2>🧬 Profil force-vitesse (montée + plat)</h2>
+      <div class="profil-grid" id="profil-fv-grid"></div>
+    </div>
+    <div class="card">
+      <h2>🏔 Profil descente</h2>
+      <div class="profil-grid" id="profil-desc-grid"></div>
+    </div>
+    <div class="card">
+      <h2>📋 Statistiques des segments GPS</h2>
+      <div class="profil-grid" id="profil-stats-grid"></div>
+    </div>
+  </section>
+
+  <!-- ================= TAB 5 : PACING ================= -->
+  <section id="tab-pacing" class="tab-panel">
+    <div class="card">
+      <h2>⚙ Réglages globaux</h2>
+      <div class="form-grid">
+        <label>Intensité (défaut)
+          <select id="global-intensite"></select>
+        </label>
+        <label>Technicité (défaut)
+          <select id="global-technicite"></select>
+        </label>
+        <label>Conditions (défaut)
+          <select id="global-conditions"></select>
+        </label>
+      </div>
+      <button id="apply-global-btn" class="btn-secondary">↻ Appliquer à tous les segments</button>
+      <label class="checkbox-label">
+        <input type="checkbox" id="toggle-full-columns" />
+        Afficher toutes les colonnes (vue complète, comme Excel)
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>🏔 Pacing — temps prévisionnels</h2>
+      <div class="table-wrap">
+        <table id="pacing-table">
+          <thead></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+      <button id="export-csv-btn" class="btn-primary">⬇ Exporter le pacing en CSV</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="app-footer">
+  <p>Port fidèle du prédicteur de pacing trail (Excel V3) — calcul 100% local dans votre navigateur, aucune donnée envoyée à un serveur.</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
