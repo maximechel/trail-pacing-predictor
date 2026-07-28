@@ -11,6 +11,15 @@ const BRAND_BLUE_RGB = [5, 5, 197];
 const CHART_GREEN_LINE = '#3f9450';
 const CHART_GREEN_FILL = 'rgba(63,148,80,0.22)';
 
+/**
+ * Formate un nombre pour un rendu jsPDF : `fmt()` insère un espace fine insécable (séparateur de
+ * milliers en français) que la police standard du PDF ne sait pas afficher (elle le rend en glyphe
+ * cassé, visible comme un « / »). On la remplace par un espace normal, sans risque ici.
+ */
+function fmtPdf(n, digits = 0) {
+  return fmt(n, digits).replace(/[  ]/g, ' ');
+}
+
 function slugify(text) {
   return (text || 'pacing')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -54,11 +63,14 @@ function getScaledDims(imgEl, maxHeight) {
 
 /**
  * Renvoie les lignes du pacing dont un repère (nom) a été renseigné, avec la distance cumulée
- * calculée (fin de segment), triées par ordre de parcours.
+ * calculée (fin de segment), triées par ordre de parcours. Le temps de segment affiché n'est pas
+ * le temps du seul segment automatique sur lequel tombe le repère, mais le temps V2 écoulé très
+ * exactement entre ce repère et le repère précédent (somme de tous les segments intermédiaires,
+ * y compris non nommés).
  */
 function getLandmarkRows(state) {
   if (!state.pacing) return [];
-  return state.pacing.rows
+  const rows = state.pacing.rows
     .filter((row) => state.rowMeta[row.numero] && state.rowMeta[row.numero].label && state.rowMeta[row.numero].label.trim() !== '')
     .map((row) => ({
       numero: row.numero,
@@ -67,10 +79,18 @@ function getLandmarkRows(state) {
       distCumFin: (row.distCumDebut || 0) + (row.distanceKm || 0),
       dPlus: row.dPlus,
       dMinus: row.dMinus,
-      tempsV2: row.tempsV2,
       cumulV2: row.cumulV2,
       cumulV2HM: row.cumulV2HM,
     }));
+
+  let prevCumul = 0;
+  rows.forEach((lm) => {
+    const cumul = (lm.cumulV2 !== null && lm.cumulV2 !== undefined) ? lm.cumulV2 : prevCumul;
+    lm.tempsSegment = excelRound(cumul - prevCumul, 1);
+    prevCumul = cumul;
+  });
+
+  return rows;
 }
 
 /**
@@ -215,7 +235,7 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
     ctx.fillText(lm.label, x, labelBaseY - 20);
     ctx.font = '18px -apple-system, sans-serif';
     ctx.fillStyle = '#444441';
-    ctx.fillText(`${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m / D-${Math.round(lm.dMinus)} m`, x, labelBaseY);
+    ctx.fillText(`${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`, x, labelBaseY);
   });
 
   return canvas;
@@ -262,11 +282,22 @@ async function generatePacingPDF(state) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(90, 90, 90);
-  const subtitle = `${fmt(state.auto.distanceTotaleKm, 1)} km   ·   D+ ${fmt(state.auto.dPlusTotal, 0)} m   ·   D- ${fmt(state.auto.dMinusTotal, 0)} m   ·   Catégorie : ${state.categorie}`;
-  doc.text(subtitle, textX, cursorY + 3);
+  const activeAthlete = (state.athletes || []).find((a) => a.id === state.activeAthleteId) || null;
+  const subtitleParts = [
+    `${fmtPdf(state.auto.distanceTotaleKm, 1)} km`,
+    `D+ ${fmtPdf(state.auto.dPlusTotal, 0)} m`,
+    `D- ${fmtPdf(state.auto.dMinusTotal, 0)} m`,
+    `Catégorie : ${state.categorie}`,
+  ];
+  if (activeAthlete) subtitleParts.push(`Athlète : ${athleteFullName(activeAthlete)}`);
+  const subtitle = subtitleParts.join('   ·   ');
+  const subtitleWidth = pageWidth - textX - marginX;
+  const subtitleLines = doc.splitTextToSize(subtitle, subtitleWidth);
+  doc.text(subtitleLines, textX, cursorY + 3);
   doc.setTextColor(0, 0, 0);
 
-  cursorY = Math.max(cursorY + 12, marginX + 24);
+  cursorY += 3 + subtitleLines.length * 5.5;
+  cursorY = Math.max(cursorY + 6, marginX + 24);
 
   // ---- Profil altimétrique ----
   const landmarks = getLandmarkRows(state);
@@ -298,16 +329,15 @@ async function generatePacingPDF(state) {
   } else {
     const body = landmarks.map((lm) => [
       lm.label,
-      lm.type,
-      `${fmt(lm.distCumFin, 2)} km`,
-      `${fmt(lm.dPlus, 0)} m`,
-      `${fmt(lm.dMinus, 0)} m`,
-      fmt(lm.tempsV2, 1),
+      `${fmtPdf(lm.distCumFin, 2)} km`,
+      `${fmtPdf(lm.dPlus, 0)} m`,
+      `${fmtPdf(lm.dMinus, 0)} m`,
+      fmtPdf(lm.tempsSegment, 1),
       lm.cumulV2HM,
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Type', 'Distance cumulée', 'D+', 'D-', 'Temps segment (min)', 'Cumul (V2)']],
+      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'Temps segment (min)', 'Temps cumulé']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
