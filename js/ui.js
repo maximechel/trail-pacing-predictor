@@ -212,9 +212,12 @@ function renderProfils(profils) {
 // ---------- Pacing ----------
 
 const PACING_COLUMNS = [
+  { key: 'rowSelected', label: '☑', adv: false, editable: 'checkbox' },
+  { key: 'rowLabel', label: 'Repère (village / ravito)', adv: false, editable: 'text' },
   { key: 'numero', label: 'N°', adv: false, align: 'right' },
   { key: 'type', label: 'Type', adv: false, align: 'left' },
   { key: 'distanceKm', label: 'Dist. (km)', adv: false, digits: 3 },
+  { key: 'distCumFin', label: 'Distance cumulée (km)', adv: false, digits: 3 },
   { key: 'dPlus', label: 'D+ (m)', adv: false, digits: 1 },
   { key: 'dMinus', label: 'D- (m)', adv: false, digits: 1 },
   { key: 'penteMoy', label: 'Pente moy (%)', adv: true, digits: 1 },
@@ -241,7 +244,19 @@ const PACING_COLUMNS = [
   { key: 'cumulV2HM', label: 'Cumul V2 (h min)', adv: false, align: 'left' },
 ];
 
-function renderPacingTable(pacing, settings, showAdvanced) {
+/** Valeur d'une colonne "spéciale" non stockée directement sur la ligne pacing (repère, sélection, distance cumulée fin). */
+function pacingSpecialValue(col, row, rowMeta) {
+  const meta = (rowMeta && rowMeta[row.numero]) || {};
+  if (col.key === 'rowSelected') return !!meta.selected;
+  if (col.key === 'rowLabel') return meta.label || '';
+  if (col.key === 'distCumFin') {
+    return (row.distCumDebut !== null && row.distanceKm !== null) ? row.distCumDebut + row.distanceKm : null;
+  }
+  if (col.key === 'pctParcoursPct') return row.pctParcours !== null ? row.pctParcours * 100 : null;
+  return undefined;
+}
+
+function renderPacingTable(pacing, settings, showAdvanced, rowMeta = {}) {
   const table = $('#pacing-table');
   table.classList.toggle('show-advanced', showAdvanced);
   const thead = table.querySelector('thead');
@@ -253,7 +268,12 @@ function renderPacingTable(pacing, settings, showAdvanced) {
 
   const headRow = el('tr');
   PACING_COLUMNS.forEach((col) => {
-    const th = el('th', { class: col.adv ? 'adv' : '' }, col.label);
+    let content = col.label;
+    if (col.key === 'rowSelected') {
+      const cb = el('input', { type: 'checkbox', 'data-select-all': '1' });
+      content = [cb, ' Tout'];
+    }
+    const th = el('th', { class: col.adv ? 'adv' : '' }, content);
     headRow.appendChild(th);
   });
   thead.appendChild(headRow);
@@ -277,9 +297,22 @@ function renderPacingTable(pacing, settings, showAdvanced) {
           class: 'pause-input', 'data-field': col.key, 'data-seg': String(row.numero),
         });
         td = el('td', { class: col.adv ? 'adv' : '' }, input);
+      } else if (col.editable === 'checkbox') {
+        const checked = pacingSpecialValue(col, row, rowMeta);
+        const input = el('input', { type: 'checkbox', 'data-field': col.key, 'data-seg': String(row.numero) });
+        if (checked) input.checked = true;
+        td = el('td', { class: col.adv ? 'adv' : '' }, input);
+      } else if (col.editable === 'text') {
+        const value = pacingSpecialValue(col, row, rowMeta);
+        const input = el('input', {
+          type: 'text', placeholder: 'ex. Ravito du Col', value: String(value),
+          'data-field': col.key, 'data-seg': String(row.numero),
+        });
+        td = el('td', { class: col.adv ? 'adv' : '' }, input);
       } else {
         let val = row[col.key];
-        if (col.key === 'pctParcoursPct') val = row.pctParcours !== null ? row.pctParcours * 100 : null;
+        const special = pacingSpecialValue(col, row, rowMeta);
+        if (special !== undefined) val = special;
         let text = col.digits !== undefined ? fmt(val, col.digits) : (val ?? '—');
         if (col.key === 'pctParcoursPct' && val !== null) text += ' %';
         td = el('td', { class: `${col.adv ? 'adv ' : ''}${col.key === 'type' ? 'type-cell' : ''}` }, String(text));
@@ -292,7 +325,9 @@ function renderPacingTable(pacing, settings, showAdvanced) {
   // ligne total
   const t = pacing.totals;
   const totalsByKey = {
-    numero: 'TOTAL', type: '', distanceKm: fmt(t.distanceKm, 3), dPlus: fmt(t.dPlus, 1), dMinus: fmt(t.dMinus, 1),
+    rowSelected: '', rowLabel: '',
+    numero: 'TOTAL', type: '', distanceKm: fmt(t.distanceKm, 3), distCumFin: fmt(t.distanceKm, 3),
+    dPlus: fmt(t.dPlus, 1), dMinus: fmt(t.dMinus, 1),
     penteMoy: '', dureeGPS: fmt(t.dureeGPS, 1), intensite: '', coefIntensite: '', technicite: '', coefTech: '',
     conditions: '', coefCond: '', coefTerrain: '', distCumDebut: '', pctParcoursPct: '', coefFatigue: '',
     tempsV1: fmt(t.tempsV1, 1), pause: fmt(t.pause, 1), totalSegV1: fmt(t.totalSegV1, 1),
@@ -306,12 +341,25 @@ function renderPacingTable(pacing, settings, showAdvanced) {
   tfoot.appendChild(footRow);
 }
 
-function pacingToCSVString(pacing) {
-  const headers = PACING_COLUMNS.map((c) => c.label);
+/**
+ * Exporte le pacing en CSV. Si au moins une ligne est cochée (rowMeta[numero].selected), seules les
+ * lignes cochées sont exportées (utile pour un roadbook avec seulement les repères importants) ;
+ * sinon toutes les lignes sont exportées.
+ */
+function pacingToCSVString(pacing, rowMeta = {}) {
+  const selectedNumeros = pacing.rows.filter((r) => rowMeta[r.numero] && rowMeta[r.numero].selected);
+  const rowsToExport = selectedNumeros.length > 0 ? selectedNumeros : pacing.rows;
+
+  const headers = PACING_COLUMNS.filter((c) => c.key !== 'rowSelected').map((c) => c.label);
   const lines = [headers.join(';')];
-  pacing.rows.forEach((row) => {
-    const line = PACING_COLUMNS.map((col) => {
-      if (col.key === 'pctParcoursPct') return row.pctParcours !== null ? (row.pctParcours * 100).toFixed(1) : '';
+  rowsToExport.forEach((row) => {
+    const line = PACING_COLUMNS.filter((c) => c.key !== 'rowSelected').map((col) => {
+      const special = pacingSpecialValue(col, row, rowMeta);
+      if (special !== undefined) {
+        if (special === null) return '';
+        if (typeof special === 'number') return special.toFixed(col.digits !== undefined ? col.digits : 3);
+        return String(special);
+      }
       const v = row[col.key];
       return v === null || v === undefined ? '' : String(v);
     });
@@ -321,5 +369,5 @@ function pacingToCSVString(pacing) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { PACING_COLUMNS, pacingToCSVString };
+  module.exports = { PACING_COLUMNS, pacingToCSVString, pacingSpecialValue };
 }

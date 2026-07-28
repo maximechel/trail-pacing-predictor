@@ -140,8 +140,14 @@ table#pacing-table th, table#pacing-table td {
   border-bottom: 1px solid var(--border);
   text-align: right;
 }
-table#segments-table th:nth-child(2), table#segments-table td:nth-child(2),
-table#pacing-table th:nth-child(2), table#pacing-table td:nth-child(2) {
+table#segments-table th:nth-child(2), table#segments-table td:nth-child(2) {
+  text-align: left;
+}
+table#pacing-table th:nth-child(1), table#pacing-table td:nth-child(1) {
+  text-align: center;
+}
+table#pacing-table th:nth-child(2), table#pacing-table td:nth-child(2),
+table#pacing-table th:nth-child(4), table#pacing-table td:nth-child(4) {
   text-align: left;
 }
 table thead th {
@@ -156,7 +162,7 @@ tr.type-descente td.type-cell { color: var(--accent-descente); font-weight: 700;
 
 tfoot td { font-weight: 700; background: var(--bg); }
 
-table#pacing-table select, table#pacing-table input[type="number"] {
+table#pacing-table select, table#pacing-table input[type="number"], table#pacing-table input[type="text"] {
   font-size: 0.8rem;
   padding: 3px 4px;
   border-radius: 6px;
@@ -165,6 +171,15 @@ table#pacing-table select, table#pacing-table input[type="number"] {
   min-width: 90px;
 }
 table#pacing-table input[type="number"].pause-input { min-width: 55px; }
+table#pacing-table input[type="text"] { min-width: 150px; }
+table#pacing-table input[type="checkbox"] {
+  width: auto;
+  min-width: auto;
+  transform: scale(1.15);
+  cursor: pointer;
+}
+table#pacing-table th input[type="checkbox"] { vertical-align: middle; margin-right: 4px; }
+tr[data-seg]:has(input[type="checkbox"]:checked) { background: #eaf3ee; }
 
 .profil-grid {
   display: grid;

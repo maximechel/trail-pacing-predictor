@@ -115,6 +115,22 @@ Temps V2 (min) = Temps V1 × Coef Profil           (profil athlète : montée/pl
 Les cumuls (V1 et V2) s'additionnent segment par segment, avec les pauses ravitaillement ajoutées à chaque
 étape.
 
+### Repères et export ciblé (roadbook)
+
+Dans l'onglet **Pacing**, chaque ligne dispose de deux colonnes supplémentaires en début de tableau :
+
+- une case à cocher (☑) pour sélectionner les lignes à exporter — une case « Tout » dans l'en-tête permet de
+  tout cocher/décocher d'un coup ;
+- un champ **Repère** libre pour nommer le point (village traversé, ravitaillement, sommet…), utile pour se
+  repérer sur le parcours.
+
+Une colonne **Distance cumulée (km)** (distance déjà parcourue une fois le segment terminé) est affichée par
+défaut pour savoir où se situe chaque repère sur le parcours.
+
+Le bouton **« Exporter le pacing en CSV »** exporte uniquement les lignes cochées si au moins une case est
+sélectionnée (utile pour un roadbook allégé avec seulement les points clés) ; si aucune ligne n'est cochée,
+il exporte l'intégralité du tableau comme avant.
+
 ## ⚙ Personnalisation
 
 Toutes les tables de coefficients (fatigue, intensité, technicité, conditions, profils) sont éditables dans

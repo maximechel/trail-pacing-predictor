@@ -13,6 +13,7 @@ const state = {
   courseNom: 'Trail de reconnaissance 2026',
   globalDefaults: { intensite: 'Facile (endurance)', technicite: 'Modérée (singletrack)', conditions: 'Sec, bon sol' },
   rowOverrides: {},       // { [numero]: { intensite, technicite, conditions, pause } }
+  rowMeta: {},            // { [numero]: { selected, label } } — purement présentationnel (repères, export)
   pacing: null,
   showAdvanced: false,
 };
@@ -90,7 +91,17 @@ function renderAll() {
   populateSelect($('#global-technicite'), state.settings.technicite, state.globalDefaults.technicite);
   populateSelect($('#global-conditions'), state.settings.conditions, state.globalDefaults.conditions);
 
-  renderPacingTable(state.pacing, state.settings, state.showAdvanced);
+  renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
+  updateExportButtonLabel();
+}
+
+function updateExportButtonLabel() {
+  const btn = $('#export-csv-btn');
+  if (!btn) return;
+  const nSelected = Object.values(state.rowMeta).filter((m) => m && m.selected).length;
+  btn.textContent = nSelected > 0
+    ? `⬇ Exporter la sélection (${nSelected} ligne${nSelected > 1 ? 's' : ''})`
+    : '⬇ Exporter le pacing en CSV';
 }
 
 // ---------- Import FIT ----------
@@ -174,6 +185,7 @@ function analyzeCSV(text) {
     const rows = parseImportCSV(text);
     state.csvRows = rows;
     state.rowOverrides = {};
+    state.rowMeta = {};
     const auto = computeCourseAutoFields(rows);
     state.categorie = suggestCategorie(auto.distanceTotaleKm);
     statusEl.className = 'status ok';
@@ -229,6 +241,7 @@ function wireImportTab() {
     state.profils = null;
     state.pacing = null;
     state.rowOverrides = {};
+    state.rowMeta = {};
     $('#import-status').textContent = '';
     recomputeAll();
   });
@@ -267,15 +280,37 @@ function wirePacingTab() {
 
   $('#toggle-full-columns').addEventListener('change', (e) => {
     state.showAdvanced = e.target.checked;
-    renderPacingTable(state.pacing, state.settings, state.showAdvanced);
+    renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
   });
 
-  // Délégation d'événements sur le tableau pacing (dropdowns + pauses par segment)
+  // Délégation d'événements sur le tableau pacing (dropdowns, pauses, sélection, repères)
   $('#pacing-table').addEventListener('change', (e) => {
     const target = e.target;
+
+    // Case "Tout" dans l'en-tête : coche/décoche toutes les lignes
+    if (target.dataset.selectAll !== undefined) {
+      const checked = target.checked;
+      state.pacing.rows.forEach((row) => {
+        if (!state.rowMeta[row.numero]) state.rowMeta[row.numero] = {};
+        state.rowMeta[row.numero].selected = checked;
+      });
+      renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
+      updateExportButtonLabel();
+      return;
+    }
+
     const seg = target.dataset.seg;
     const field = target.dataset.field;
     if (!seg || !field) return;
+
+    if (field === 'rowSelected') {
+      if (!state.rowMeta[seg]) state.rowMeta[seg] = {};
+      state.rowMeta[seg].selected = target.checked;
+      updateExportButtonLabel();
+      return;
+    }
+    if (field === 'rowLabel') return; // géré par l'écouteur 'input' ci-dessous (évite de perdre le focus)
+
     if (!state.rowOverrides[seg]) state.rowOverrides[seg] = {};
     if (field === 'pause') {
       state.rowOverrides[seg].pause = parseFloat(target.value) || 0;
@@ -285,9 +320,20 @@ function wirePacingTab() {
     recomputeAll();
   });
 
+  // Champ "Repère" : mise à jour de l'état à chaque frappe, sans reconstruire le tableau
+  // (sinon le champ perdrait le focus au milieu de la saisie).
+  $('#pacing-table').addEventListener('input', (e) => {
+    const target = e.target;
+    if (target.dataset.field !== 'rowLabel') return;
+    const seg = target.dataset.seg;
+    if (!seg) return;
+    if (!state.rowMeta[seg]) state.rowMeta[seg] = {};
+    state.rowMeta[seg].label = target.value;
+  });
+
   $('#export-csv-btn').addEventListener('click', () => {
     if (!state.pacing) return;
-    const csv = pacingToCSVString(state.pacing);
+    const csv = pacingToCSVString(state.pacing, state.rowMeta);
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
