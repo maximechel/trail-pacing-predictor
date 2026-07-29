@@ -66,14 +66,6 @@ function recomputeAll() {
 }
 
 function renderAll() {
-  // Résumé header
-  const summary = $('#course-summary');
-  if (state.segments.length) {
-    summary.textContent = `Course : ${state.courseNom} | ${fmt(state.auto.distanceTotaleKm, 1)} km | D+ ${fmt(state.auto.dPlusTotal, 0)} m | Catégorie : ${state.categorie} | Profil : ${state.profils.profilForceVitesse} + ${state.profils.profilDescente}`;
-  } else {
-    summary.textContent = 'Importez un CSV de reconnaissance GPS pour commencer.';
-  }
-
   // Paramètres
   $('#param-nom').value = state.courseNom;
   $('#param-distance').value = state.segments.length ? `${fmt(state.auto.distanceTotaleKm, 1)} km` : '—';
@@ -390,10 +382,6 @@ function wireImportTab() {
 function wireParametresTab() {
   $('#param-nom').addEventListener('input', (e) => {
     state.courseNom = e.target.value;
-    const summary = $('#course-summary');
-    if (state.segments.length) {
-      summary.textContent = `Course : ${state.courseNom} | ${fmt(state.auto.distanceTotaleKm, 1)} km | D+ ${fmt(state.auto.dPlusTotal, 0)} m | Catégorie : ${state.categorie} | Profil : ${state.profils.profilForceVitesse} + ${state.profils.profilDescente}`;
-    }
   });
   $('#param-categorie').addEventListener('change', (e) => { state.categorie = e.target.value; recomputeAll(); });
   $('#reset-settings-btn').addEventListener('click', () => {
