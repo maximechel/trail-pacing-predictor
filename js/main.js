@@ -234,59 +234,123 @@ function wireAthletesTab() {
   });
 }
 
-// ---------- Import FIT ----------
+// ---------- Import FIT (jusqu'à 4 parties, reconnaissance faite en plusieurs fois) ----------
 
 let lastFitCsvText = null;
+// fitParts[i] = null (rien chargé) ou { fileName, rows, pointCount, distanceKm } pour la partie i+1.
+const fitParts = [null, null, null, null];
 
-function wireFitTab() {
-  $('#fit-file-input').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const statusEl = $('#fit-status');
-    const summaryEl = $('#fit-summary');
-    const actionsEl = $('#fit-actions');
+function updateFitCombinedSummary() {
+  const statusEl = $('#fit-status');
+  const summaryEl = $('#fit-summary');
+  const actionsEl = $('#fit-actions');
+
+  const loadedIndexes = fitParts
+    .map((p, i) => (p ? i : null))
+    .filter((i) => i !== null);
+
+  if (loadedIndexes.length === 0) {
+    statusEl.className = 'status';
+    statusEl.textContent = '';
     summaryEl.style.display = 'none';
     actionsEl.style.display = 'none';
-    statusEl.className = 'status';
-    statusEl.textContent = `⏳ Lecture de ${file.name}…`;
+    lastFitCsvText = null;
+    return;
+  }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const { points, pointCount } = parseFitPoints(reader.result);
-        if (pointCount < 2) {
-          throw new Error("Aucune donnée GPS (latitude/longitude) trouvée dans ce fichier .fit. Vérifiez qu'il s'agit bien d'un enregistrement avec suivi GPS.");
+  // Signale un éventuel "trou" dans la numérotation des parties (ex. Partie 1 et 3 chargées sans
+  // Partie 2) : les parties sont tout de même fusionnées dans l'ordre de leur numéro, mais mieux
+  // vaut prévenir l'utilisateur que l'ordre attendu n'est peut-être pas respecté.
+  const firstMissingBeforeLast = loadedIndexes.some((i, k) => k > 0 && i !== loadedIndexes[k - 1] + 1);
+
+  const orderedRows = loadedIndexes.map((i) => fitParts[i].rows);
+  const merged = mergeFitParts(orderedRows);
+  lastFitCsvText = importRowsToCSVText(merged);
+
+  const distanceKm = merged[merged.length - 1].distance_cum_m / 1000;
+  const durationMin = merged.reduce((a, r) => a + (r.time_step_s || 0), 0) / 60;
+  const totalPoints = merged.length;
+
+  statusEl.className = firstMissingBeforeLast ? 'status error' : 'status ok';
+  statusEl.textContent = firstMissingBeforeLast
+    ? `⚠ ${loadedIndexes.length} partie(s) chargée(s), mais la numérotation a un trou (vérifiez l'ordre Partie 1 → 4) — fusion faite dans l'ordre des numéros malgré tout.`
+    : `✔ ${loadedIndexes.length} partie${loadedIndexes.length > 1 ? 's' : ''} lue${loadedIndexes.length > 1 ? 's' : ''} et mise${loadedIndexes.length > 1 ? 's' : ''} bout à bout avec succès.`;
+
+  summaryEl.innerHTML = '';
+  summaryEl.style.display = 'grid';
+  [
+    ['Parties combinées', String(loadedIndexes.length)],
+    ['Points GPS (total)', String(totalPoints)],
+    ['Distance estimée', `${fmt(distanceKm, 2)} km`],
+    ['Durée', `${fmt(durationMin, 1)} min`],
+  ].forEach(([label, value]) => {
+    summaryEl.appendChild(el('label', {}, [label, el('input', { type: 'text', value, readonly: 'true' })]));
+  });
+  actionsEl.style.display = 'flex';
+}
+
+function renderFitPartStatus(partNum) {
+  const statusEl = document.querySelector(`.fit-part-status[data-part="${partNum}"]`);
+  if (!statusEl) return;
+  const part = fitParts[partNum - 1];
+  statusEl.innerHTML = '';
+  if (!part) {
+    statusEl.className = 'fit-part-status';
+    statusEl.textContent = '';
+    return;
+  }
+  if (part.error) {
+    statusEl.className = 'fit-part-status error';
+    statusEl.textContent = `✖ ${part.error}`;
+    return;
+  }
+  statusEl.className = 'fit-part-status ok';
+  statusEl.append(`✔ ${part.fileName} — ${part.pointCount} pts, ${fmt(part.distanceKm, 2)} km  `);
+  const removeBtn = el('button', { type: 'button', class: 'fit-part-remove' }, ['✕ Retirer']);
+  removeBtn.addEventListener('click', () => {
+    fitParts[partNum - 1] = null;
+    const input = document.querySelector(`.fit-part-input[data-part="${partNum}"]`);
+    if (input) input.value = '';
+    renderFitPartStatus(partNum);
+    updateFitCombinedSummary();
+  });
+  statusEl.appendChild(removeBtn);
+}
+
+function wireFitTab() {
+  document.querySelectorAll('.fit-part-input').forEach((input) => {
+    input.addEventListener('change', (e) => {
+      const partNum = parseInt(input.dataset.part, 10);
+      const file = e.target.files[0];
+      if (!file) return;
+
+      fitParts[partNum - 1] = null;
+      const statusEl = document.querySelector(`.fit-part-status[data-part="${partNum}"]`);
+      if (statusEl) { statusEl.className = 'fit-part-status'; statusEl.textContent = `⏳ Lecture de ${file.name}…`; }
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const { points, pointCount } = parseFitPoints(reader.result);
+          if (pointCount < 2) {
+            throw new Error("Aucune donnée GPS trouvée dans ce fichier .fit.");
+          }
+          const rows = buildImportRowsFromPoints(points);
+          const distanceKm = rows[rows.length - 1].distance_cum_m / 1000;
+          fitParts[partNum - 1] = { fileName: file.name, rows, pointCount, distanceKm };
+        } catch (err) {
+          fitParts[partNum - 1] = { error: err.message };
         }
-        const rows = buildImportRowsFromPoints(points);
-        lastFitCsvText = importRowsToCSVText(rows);
-
-        const distanceKm = (rows[rows.length - 1].distance_cum_m / 1000);
-        const durationMin = rows.reduce((a, r) => a + (r.time_step_s || 0), 0) / 60;
-
-        statusEl.className = 'status ok';
-        statusEl.textContent = `✔ ${pointCount} points GPS lus et convertis avec succès.`;
-
-        summaryEl.innerHTML = '';
-        summaryEl.style.display = 'grid';
-        [
-          ['Points GPS', String(pointCount)],
-          ['Distance estimée', `${fmt(distanceKm, 2)} km`],
-          ['Durée', `${fmt(durationMin, 1)} min`],
-        ].forEach(([label, value]) => {
-          summaryEl.appendChild(el('label', {}, [label, el('input', { type: 'text', value, readonly: 'true' })]));
-        });
-        actionsEl.style.display = 'flex';
-      } catch (err) {
-        statusEl.className = 'status error';
-        statusEl.textContent = `✖ ${err.message}`;
-        lastFitCsvText = null;
-      }
-    };
-    reader.onerror = () => {
-      statusEl.className = 'status error';
-      statusEl.textContent = "✖ Impossible de lire ce fichier.";
-    };
-    reader.readAsArrayBuffer(file);
+        renderFitPartStatus(partNum);
+        updateFitCombinedSummary();
+      };
+      reader.onerror = () => {
+        fitParts[partNum - 1] = { error: 'Impossible de lire ce fichier.' };
+        renderFitPartStatus(partNum);
+        updateFitCombinedSummary();
+      };
+      reader.readAsArrayBuffer(file);
+    });
   });
 
   $('#fit-send-btn').addEventListener('click', () => {

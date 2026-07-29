@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=10" />
+<link rel="stylesheet" href="css/style.css?v=11" />
 </head>
 <body>
 <header class="app-header">
@@ -99,12 +99,46 @@
         trigonométrie sphérique entre points GPS successifs), validée par comparaison avec les données de
         référence de l'outil d'origine.
       </p>
+      <p class="hint">
+        🧩 Reconnaissance faite en plusieurs fois ? Chargez jusqu'à <strong>4 fichiers .fit</strong> pour la
+        même course ci-dessous, <strong>dans l'ordre du parcours</strong> (Partie 1 = début). L'application
+        les mettra bout à bout automatiquement pour reconstituer une seule trace continue et calculer une
+        prédiction pertinente sur la course entière. Une seule partie suffit si vous n'avez qu'un fichier.
+      </p>
 
-      <div class="import-controls">
-        <label class="file-btn">
-          ⌚ Charger un fichier .fit
-          <input type="file" id="fit-file-input" accept=".fit" hidden />
-        </label>
+      <div class="fit-parts">
+        <div class="fit-part-row" data-part="1">
+          <span class="fit-part-label">Partie 1</span>
+          <label class="file-btn">
+            ⌚ Charger le fichier .fit
+            <input type="file" class="fit-part-input" data-part="1" accept=".fit" hidden />
+          </label>
+          <span class="fit-part-status" data-part="1"></span>
+        </div>
+        <div class="fit-part-row" data-part="2">
+          <span class="fit-part-label">Partie 2</span>
+          <label class="file-btn">
+            ⌚ Charger le fichier .fit
+            <input type="file" class="fit-part-input" data-part="2" accept=".fit" hidden />
+          </label>
+          <span class="fit-part-status" data-part="2"></span>
+        </div>
+        <div class="fit-part-row" data-part="3">
+          <span class="fit-part-label">Partie 3</span>
+          <label class="file-btn">
+            ⌚ Charger le fichier .fit
+            <input type="file" class="fit-part-input" data-part="3" accept=".fit" hidden />
+          </label>
+          <span class="fit-part-status" data-part="3"></span>
+        </div>
+        <div class="fit-part-row" data-part="4">
+          <span class="fit-part-label">Partie 4</span>
+          <label class="file-btn">
+            ⌚ Charger le fichier .fit
+            <input type="file" class="fit-part-input" data-part="4" accept=".fit" hidden />
+          </label>
+          <span class="fit-part-status" data-part="4"></span>
+        </div>
       </div>
 
       <div id="fit-status" class="status"></div>
@@ -325,13 +359,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=10"></script>
-<script src="js/engine.js?v=10"></script>
-<script src="js/fit-parser.js?v=10"></script>
-<script src="js/fit-to-csv.js?v=10"></script>
-<script src="js/athletes.js?v=10"></script>
-<script src="js/pdf-export.js?v=10"></script>
-<script src="js/ui.js?v=10"></script>
-<script src="js/main.js?v=10"></script>
+<script src="js/data.js?v=11"></script>
+<script src="js/engine.js?v=11"></script>
+<script src="js/fit-parser.js?v=11"></script>
+<script src="js/fit-to-csv.js?v=11"></script>
+<script src="js/athletes.js?v=11"></script>
+<script src="js/pdf-export.js?v=11"></script>
+<script src="js/ui.js?v=11"></script>
+<script src="js/main.js?v=11"></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=10`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=11`, `?v=12`…) dans `index.html`
+> `?v=11`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=12`, `?v=13`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -103,6 +103,21 @@ Une fois converti, le CSV généré peut être envoyé directement vers l'onglet
 > Limite connue : si votre montre écrit occasionnellement des points sans coordonnées GPS (perte de signal),
 > ces points sont simplement ignorés ; le calcul de distance/temps se fait alors entre les deux points
 > valides encadrants.
+
+#### Reconnaissance en plusieurs fois (jusqu'à 4 fichiers .fit)
+
+Si le parcours a été reconnu en plusieurs sorties (donc plusieurs fichiers `.fit`), l'onglet **2. Import
+FIT** propose 4 emplacements **« Partie 1 »** à **« Partie 4 »**. Chargez vos fichiers dans l'ordre du
+parcours (Partie 1 = début de la course) : l'application les met bout à bout automatiquement pour
+reconstituer une seule trace continue, avant de calculer les 16 colonnes GPS habituelles sur l'ensemble.
+
+Chaque partie garde son propre calcul de distance/vitesse/pente (il peut s'écouler plusieurs heures, voire
+plusieurs jours, entre deux sorties de reconnaissance — calculer une distance ou une vitesse entre la fin
+d'une partie et le début de la suivante n'aurait pas de sens). Seule la **distance cumulée** est décalée
+partie par partie pour que le total corresponde bien à la course entière ; le résumé combiné (points GPS,
+distance totale, durée) tient compte des parties réellement chargées. Une seule partie suffit si vous n'avez
+qu'un seul fichier — le comportement est alors identique à avant. Un bouton **« ✕ Retirer »** apparaît sous
+chaque partie chargée pour la retirer et en charger une autre à la place.
 
 ### Format du CSV attendu
 

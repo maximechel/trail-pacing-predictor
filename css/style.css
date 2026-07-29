@@ -110,6 +110,33 @@ textarea#csv-textarea {
 .status.ok { color: var(--primary-dark); }
 .status.error { color: #b3261e; }
 
+.fit-parts { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+.fit-part-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+.fit-part-label { font-weight: 700; font-size: 0.85rem; min-width: 70px; color: var(--text); }
+.fit-part-row .file-btn { padding: 7px 14px; font-size: 0.83rem; }
+.fit-part-status { font-size: 0.82rem; color: var(--muted); flex: 1; min-width: 160px; }
+.fit-part-status.ok { color: var(--primary-dark); }
+.fit-part-status.error { color: #b3261e; }
+.fit-part-remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  padding: 0;
+}
+.fit-part-remove:hover { color: #b3261e; }
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

@@ -131,6 +131,42 @@ function buildImportRowsFromPoints(points) {
   return rows;
 }
 
+/**
+ * Met bout à bout plusieurs jeux de lignes IMPORT_CSV (un par "partie" de reconnaissance GPS importée
+ * séparément — cas d'un parcours reconnu en plusieurs fois), dans l'ordre du parcours, pour
+ * reconstituer une seule trace continue.
+ *
+ * Chaque partie a été calculée indépendamment par buildImportRowsFromPoints() : distance/vitesse/
+ * pente/lissage restent propres à chaque partie (le premier point de chaque partie redémarre "à zéro",
+ * comme le tout premier point d'un import classique), car il peut s'écouler plusieurs heures — voire
+ * plusieurs jours — entre deux fichiers, et calculer une distance/vitesse entre le dernier point d'une
+ * partie et le premier de la suivante n'aurait pas de sens. Seule la distance cumulée est décalée
+ * (offset) partie par partie pour que le total corresponde bien à la course entière.
+ *
+ * @param {Array<Array<object>>} partsRows tableau de jeux de lignes, un par partie, dans l'ordre
+ *   Partie 1 → Partie 4 (les parties non renseignées doivent être omises avant l'appel).
+ * @returns {Array<object>} lignes fusionnées, point_index et distance_cum_m recalculés en continu.
+ */
+function mergeFitParts(partsRows) {
+  const merged = [];
+  let distOffset = 0;
+  let idx = 0;
+  partsRows.forEach((rows) => {
+    if (!rows || rows.length === 0) return;
+    rows.forEach((row) => {
+      idx += 1;
+      merged.push({
+        ...row,
+        point_index: idx,
+        distance_cum_m: (row.distance_cum_m || 0) + distOffset,
+      });
+    });
+    const lastCum = rows[rows.length - 1].distance_cum_m || 0;
+    distOffset += lastCum;
+  });
+  return merged;
+}
+
 function importRowsToCSVText(rows) {
   const cols = [
     'point_index', 'time', 'latitude', 'longitude', 'altitude_m', 'distance_step_m', 'distance_cum_m',
@@ -157,5 +193,7 @@ function importRowsToCSVText(rows) {
 }
 
 if (typeof module !== 'undefined') {
-  module.exports = { haversineMeters, classifySlope, centeredMean5, buildImportRowsFromPoints, importRowsToCSVText };
+  module.exports = {
+    haversineMeters, classifySlope, centeredMean5, buildImportRowsFromPoints, mergeFitParts, importRowsToCSVText,
+  };
 }
