@@ -20,6 +20,17 @@ function fmtPdf(n, digits = 0) {
   return fmt(n, digits).replace(/[  ]/g, ' ');
 }
 
+/**
+ * Entier sans séparateur de milliers, pour les cellules de tableau étroites (D+/D- notamment) : le
+ * séparateur de milliers (même remplacé par un espace normal via `fmtPdf`) reste un espace, sur
+ * lequel jspdf-autotable coupe la ligne dès que la colonne est un peu juste (ex. "1 431" -> "1" /
+ * "431" sur deux lignes). Un entier collé évite tout retour à la ligne dans ces colonnes.
+ */
+function fmtPdfInt(n) {
+  if (n === null || n === undefined || Number.isNaN(n)) return '';
+  return String(excelRound(n, 0));
+}
+
 function slugify(text) {
   return (text || 'pacing')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -440,17 +451,17 @@ async function generatePacingPDF(state) {
     const body = landmarks.map((lm) => [
       lm.label,
       `${fmtPdf(lm.distCumFin, 2)} km`,
-      fmtPdf(lm.dPlus, 0),
-      fmtPdf(lm.dMinus, 0),
-      fmtPdf(lm.dPlusCumul, 0),
-      fmtPdf(lm.dMinusCumul, 0),
+      fmtPdfInt(lm.dPlus),
+      fmtPdfInt(lm.dMinus),
+      fmtPdfInt(lm.dPlusCumul),
+      fmtPdfInt(lm.dMinusCumul),
       formatHM(lm.tempsSegment),
-      lm.pause > 0 ? `${fmtPdf(lm.pause, 0)} min` : '—',
+      lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
       lm.cumulV2HM,
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)', 'Temps segment', 'Pause ravito', 'Temps cumulé']],
+      head: [['Repère', 'Distance cumulée', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)', 'Temps segment', 'Pause ravito (min)', 'Temps cumulé']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
@@ -493,6 +504,6 @@ async function generatePacingPDF(state) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    slugify, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
+    slugify, fmtPdfInt, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
   };
 }
