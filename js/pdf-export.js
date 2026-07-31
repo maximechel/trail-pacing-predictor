@@ -440,17 +440,17 @@ async function generatePacingPDF(state) {
     const body = landmarks.map((lm) => [
       lm.label,
       `${fmtPdf(lm.distCumFin, 2)} km`,
-      `${fmtPdf(lm.dPlus, 0)} m`,
-      `${fmtPdf(lm.dMinus, 0)} m`,
-      `${fmtPdf(lm.dPlusCumul, 0)} m`,
-      `${fmtPdf(lm.dMinusCumul, 0)} m`,
+      fmtPdf(lm.dPlus, 0),
+      fmtPdf(lm.dMinus, 0),
+      fmtPdf(lm.dPlusCumul, 0),
+      fmtPdf(lm.dMinusCumul, 0),
       formatHM(lm.tempsSegment),
       lm.pause > 0 ? `${fmtPdf(lm.pause, 0)} min` : '—',
       lm.cumulV2HM,
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'D+ cumulé', 'D- cumulé', 'Temps segment', 'Pause ravito', 'Temps cumulé']],
+      head: [['Repère', 'Distance cumulée', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)', 'Temps segment', 'Pause ravito', 'Temps cumulé']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
