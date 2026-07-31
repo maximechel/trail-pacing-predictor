@@ -124,34 +124,24 @@ function getLandmarkRows(state) {
 }
 
 /**
- * Construit le profil altimétrique (distance cumulée en km / altitude en m) à afficher sur le graphique.
- * Utilise les points GPS bruts si disponibles (profil fin) ; sinon reconstruit un profil approximatif
- * (altitude relative) à partir des D+/D- de chaque segment — cas d'une estimation rechargée depuis un
- * profil athlète, qui ne conserve pas les points GPS bruts.
+ * Construit le profil altimétrique (distance cumulée en km / altitude en m) à afficher sur le graphique,
+ * du plus précis au moins précis selon ce qui est disponible :
+ * 1. points GPS bruts de l'import en cours (profil fin, ré-échantillonné à ~400 points) ;
+ * 2. profil échantillonné stocké dans l'estimation rechargée (`state.elevationProfile`) — bien plus
+ *    précis que la reconstruction depuis les seuls D+/D- des segments, disponible même sans les points
+ *    GPS bruts complets (non conservés dans l'historique athlète pour rester léger) ;
+ * 3. profil approximatif (altitude relative, départ à 0) reconstruit depuis les D+/D- des segments —
+ *    dernier repli si aucune des deux sources précédentes n'est disponible.
  */
 function buildElevationProfile(state) {
-  if (state.csvRows && state.csvRows.length > 1) {
-    const rows = state.csvRows;
-    const maxPoints = 400;
-    const step = Math.max(1, Math.floor(rows.length / maxPoints));
-    const points = [];
-    for (let i = 0; i < rows.length; i += step) {
-      const r = rows[i];
-      if (typeof r.distance_cum_m === 'number' && typeof r.altitude_m === 'number') {
-        points.push({ distKm: r.distance_cum_m / 1000, alt: r.altitude_m });
-      }
-    }
-    const last = rows[rows.length - 1];
-    if (last && typeof last.distance_cum_m === 'number' && typeof last.altitude_m === 'number') {
-      const lastKm = last.distance_cum_m / 1000;
-      if (!points.length || points[points.length - 1].distKm !== lastKm) {
-        points.push({ distKm: lastKm, alt: last.altitude_m });
-      }
-    }
-    if (points.length >= 2) return { points, approximate: false };
+  const fromRaw = downsampleElevationProfile(state.csvRows);
+  if (fromRaw) return { points: fromRaw, approximate: false };
+
+  if (state.elevationProfile && state.elevationProfile.length >= 2) {
+    return { points: state.elevationProfile, approximate: false };
   }
 
-  // Repli : profil approximatif reconstruit depuis les segments (altitude relative, départ à 0).
+  // Dernier repli : profil approximatif reconstruit depuis les segments (altitude relative, départ à 0).
   const points = [{ distKm: 0, alt: 0 }];
   let cum = 0;
   let alt = 0;

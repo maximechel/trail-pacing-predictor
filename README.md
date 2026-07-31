@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=14`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=15`, `?v=16`…) dans `index.html`
+> `?v=16`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=17`, `?v=18`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -89,7 +89,18 @@ basé sur les vitesses mesurées lors de la reconnaissance GPS).
 et modifié des réglages dans l'onglet Pacing, le bouton d'enregistrement se transforme en
 **« 💾 Mettre à jour l'estimation du … »** : vos changements remplacent cette même entrée (au lieu d'en
 créer une copie). Un bouton secondaire **« 🆕 Enregistrer comme nouvelle estimation »** reste disponible si
-vous préférez garder l'ancienne version et en créer une nouvelle à côté.
+vous préférez garder l'ancienne version et en créer une nouvelle à côté. Chaque estimation enregistrée
+conserve aussi un **profil altimétrique échantillonné** (~400 points, léger) en plus des segments déjà
+agrégés : le graphique de dénivelé du PDF reste donc fidèle au relief réel même après avoir rechargé une
+estimation, sans avoir besoin de conserver tous les points GPS bruts (trop volumineux à stocker durablement).
+
+### Travail en cours toujours conservé
+
+Tout ce que vous faites dans l'onglet Pacing (import GPS, segments, repères, pauses, réglages, nom de la
+course…) est automatiquement sauvegardé dans le `localStorage` du navigateur au fil de vos modifications, et
+restauré au chargement de la page. Changer d'onglet dans le navigateur, fermer puis rouvrir l'onglet, ou
+recharger la page ne fait donc plus rien perdre — même sans avoir cliqué sur « Enregistrer cette estimation ».
+Seul le bouton **« 🗑 Effacer »** de l'onglet Import CSV efface ce brouillon volontairement.
 
 ### Import FIT → CSV
 

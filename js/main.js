@@ -8,6 +8,7 @@ const DEFAULT_LOGO_SRC = 'assets/logo.png';
 const state = {
   settings: null,       // tables de coefficients (cf. data.js), modifiable par l'utilisateur
   csvRows: null,         // lignes IMPORT_CSV parsées
+  elevationProfile: null, // profil altimétrique échantillonné (repli quand csvRows est absent, ex. estimation rechargée)
   segments: [],          // résultat SEGMENTS
   profils: null,         // résultat PROFILS
   auto: { distanceTotaleKm: 0, dPlusTotal: 0, dMinusTotal: 0 },
@@ -25,6 +26,62 @@ const state = {
 };
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+/*
+ * Brouillon de travail en cours : contrairement aux onglets internes de l'app (qui ne font que
+ * masquer/afficher des sections — l'état JS n'est jamais perdu en changeant d'onglet), un
+ * changement d'onglet DU NAVIGATEUR ou un rechargement de la page effaçait jusqu'ici tout le travail
+ * en cours (import GPS, repères, pauses, réglages…) tant qu'il n'avait pas été explicitement
+ * enregistré dans le profil d'un athlète. On sauvegarde donc automatiquement l'état courant dans le
+ * localStorage à chaque modification, et on le restaure au chargement de la page.
+ */
+let draftSaveTimer = null;
+
+function saveDraft() {
+  const draft = {
+    courseNom: state.courseNom,
+    categorie: state.categorie,
+    csvRows: state.csvRows,
+    // Repli compact (échantillonné) au cas où les points bruts ci-dessus ne survivraient pas au
+    // quota localStorage (cf. rattrapage ci-dessous) : garde un profil altimétrique précis malgré tout.
+    elevationProfile: state.elevationProfile || downsampleElevationProfile(state.csvRows),
+    segments: state.segments,
+    profils: state.profils,
+    auto: state.auto,
+    globalDefaults: state.globalDefaults,
+    rowOverrides: state.rowOverrides,
+    rowMeta: state.rowMeta,
+    showAdvanced: state.showAdvanced,
+    loadedEstimationId: state.loadedEstimationId,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(draft));
+  } catch (e) {
+    // Quota localStorage dépassé (grosse trace GPS, ex. import multi-fichiers .fit) : on retente sans
+    // les points bruts, seule partie vraiment volumineuse — segments/réglages/repères restent sauvegardés.
+    try {
+      localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify({ ...draft, csvRows: null }));
+    } catch (e2) { /* ignore : rien de plus à faire, le brouillon ne sera pas restauré */ }
+  }
+}
+
+function scheduleDraftSave() {
+  clearTimeout(draftSaveTimer);
+  draftSaveTimer = setTimeout(saveDraft, 500);
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_STATE);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(STORAGE_KEY_STATE); } catch (e) { /* ignore */ }
+}
 
 function loadSettings() {
   try {
@@ -119,6 +176,8 @@ function renderAll() {
   const activeAthlete = state.athletes.find((a) => a.id === state.activeAthleteId) || null;
   renderEstimationsTable(activeAthlete, { onLoad: loadEstimation, onDelete: deleteEstimationUI });
   updateSaveEstimationSection(activeAthlete);
+
+  scheduleDraftSave();
 }
 
 function updateSaveEstimationSection(activeAthlete) {
@@ -220,6 +279,7 @@ function loadEstimation(estimationId) {
   if (!est) return;
 
   state.csvRows = null; // pas de points GPS bruts dans l'instantané : on repart des segments déjà calculés
+  state.elevationProfile = est.elevationProfile || null; // profil altimétrique échantillonné (repli précis pour le PDF)
   state.courseNom = est.courseNom;
   state.categorie = est.categorie;
   state.auto = { ...est.auto };
@@ -429,6 +489,7 @@ function analyzeCSV(text) {
   try {
     const rows = parseImportCSV(text);
     state.csvRows = rows;
+    state.elevationProfile = null; // les points bruts fraîchement importés font foi, plus besoin du repli
     state.rowOverrides = {};
     state.rowMeta = {};
     state.loadedEstimationId = null; // une nouvelle reconnaissance GPS = une nouvelle estimation, pas une modification
@@ -483,6 +544,7 @@ function wireImportTab() {
   $('#clear-btn').addEventListener('click', () => {
     $('#csv-textarea').value = '';
     state.csvRows = null;
+    state.elevationProfile = null;
     state.segments = [];
     state.profils = null;
     state.pacing = null;
@@ -490,6 +552,7 @@ function wireImportTab() {
     state.rowMeta = {};
     state.loadedEstimationId = null;
     $('#import-status').textContent = '';
+    clearDraft();
     recomputeAll();
   });
 }
@@ -499,6 +562,7 @@ function wireImportTab() {
 function wireParametresTab() {
   $('#param-nom').addEventListener('input', (e) => {
     state.courseNom = e.target.value;
+    scheduleDraftSave();
   });
   $('#param-categorie').addEventListener('change', (e) => { state.categorie = e.target.value; recomputeAll(); });
   $('#reset-settings-btn').addEventListener('click', () => {
@@ -568,6 +632,7 @@ function wirePacingTab() {
       });
       renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
       updateExportButtonLabel();
+      scheduleDraftSave();
       return;
     }
 
@@ -579,6 +644,7 @@ function wirePacingTab() {
       if (!state.rowMeta[seg]) state.rowMeta[seg] = {};
       state.rowMeta[seg].selected = target.checked;
       updateExportButtonLabel();
+      scheduleDraftSave();
       return;
     }
     if (field === 'rowLabel') return; // géré par l'écouteur 'input' ci-dessous (évite de perdre le focus)
@@ -604,6 +670,7 @@ function wirePacingTab() {
     if (!seg) return;
     if (!state.rowMeta[seg]) state.rowMeta[seg] = {};
     state.rowMeta[seg].label = target.value;
+    scheduleDraftSave();
   });
 
   $('#export-csv-btn').addEventListener('click', () => {
@@ -684,6 +751,24 @@ function init() {
     if (savedActive && state.athletes.some((a) => a.id === savedActive)) state.activeAthleteId = savedActive;
   } catch (e) { /* ignore */ }
 
+  // Restaure le travail en cours (import GPS, segments, réglages, repères, pauses, nom de course)
+  // s'il y en a un : évite de tout perdre en changeant d'onglet navigateur ou en rechargeant la page.
+  const draft = loadDraft();
+  if (draft) {
+    state.courseNom = draft.courseNom ?? state.courseNom;
+    state.categorie = draft.categorie ?? state.categorie;
+    state.csvRows = draft.csvRows ?? null;
+    state.elevationProfile = draft.elevationProfile ?? null;
+    state.segments = draft.segments ?? [];
+    state.profils = draft.profils ?? null;
+    state.auto = draft.auto ?? state.auto;
+    state.globalDefaults = draft.globalDefaults ?? state.globalDefaults;
+    state.rowOverrides = draft.rowOverrides ?? {};
+    state.rowMeta = draft.rowMeta ?? {};
+    state.showAdvanced = !!draft.showAdvanced;
+    if (draft.loadedEstimationId) state.loadedEstimationId = draft.loadedEstimationId;
+  }
+
   initTabs();
   wireAthletesTab();
   wireFitTab();
@@ -692,7 +777,8 @@ function init() {
   wirePacingTab();
   loadLogo();
   $('#app-logo').addEventListener('error', () => { $('#app-logo').style.display = 'none'; });
-  renderAll();
+  $('#toggle-full-columns').checked = state.showAdvanced;
+  recomputeAll(); // reconstruit le pacing à partir des segments/réglages restaurés (comme pour une estimation chargée)
 }
 
 document.addEventListener('DOMContentLoaded', init);

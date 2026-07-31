@@ -44,9 +44,38 @@ function athleteFullName(athlete) {
 }
 
 /**
+ * Échantillonne le profil altimétrique (distance cumulée en km / altitude en m) à partir des points
+ * GPS bruts d'un import — au plus `maxPoints` points, répartis régulièrement le long du parcours.
+ * Bien plus léger à stocker que les points bruts complets (qui peuvent représenter plusieurs Mo sur
+ * une grosse reconnaissance, ex. import FIT multi-parties), tout en gardant un profil fidèle au
+ * relief réel (contrairement à la reconstruction approximative depuis les seuls D+/D- des segments).
+ * Retourne `null` si les données sont insuffisantes.
+ */
+function downsampleElevationProfile(csvRows, maxPoints = 400) {
+  if (!csvRows || csvRows.length < 2) return null;
+  const step = Math.max(1, Math.floor(csvRows.length / maxPoints));
+  const points = [];
+  for (let i = 0; i < csvRows.length; i += step) {
+    const r = csvRows[i];
+    if (typeof r.distance_cum_m === 'number' && typeof r.altitude_m === 'number') {
+      points.push({ distKm: r.distance_cum_m / 1000, alt: r.altitude_m });
+    }
+  }
+  const last = csvRows[csvRows.length - 1];
+  if (last && typeof last.distance_cum_m === 'number' && typeof last.altitude_m === 'number') {
+    const lastKm = last.distance_cum_m / 1000;
+    if (!points.length || points[points.length - 1].distKm !== lastKm) {
+      points.push({ distKm: lastKm, alt: last.altitude_m });
+    }
+  }
+  return points.length >= 2 ? points : null;
+}
+
+/**
  * Construit un instantané (snapshot) de l'état courant de l'application, destiné à être enregistré
- * dans le profil d'un athlète. Ne contient pas les points GPS bruts (trop volumineux) : uniquement
- * les segments déjà agrégés, le profil calculé, les réglages et les résultats du pacing.
+ * dans le profil d'un athlète. Ne contient pas les points GPS bruts complets (trop volumineux) —
+ * uniquement les segments déjà agrégés, le profil calculé, les réglages, les résultats du pacing, et
+ * un profil altimétrique échantillonné (léger) pour que le PDF reste précis même après rechargement.
  */
 function buildEstimationSnapshot(state) {
   return {
@@ -61,6 +90,7 @@ function buildEstimationSnapshot(state) {
     rowOverrides: JSON.parse(JSON.stringify(state.rowOverrides)),
     rowMeta: JSON.parse(JSON.stringify(state.rowMeta)),
     pacingTotals: state.pacing ? state.pacing.totals : null,
+    elevationProfile: state.elevationProfile || downsampleElevationProfile(state.csvRows),
   };
 }
 
@@ -104,7 +134,7 @@ function deleteAthlete(athletes, athleteId) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    loadAthletes, saveAthletes, createAthlete, athleteFullName,
+    loadAthletes, saveAthletes, createAthlete, athleteFullName, downsampleElevationProfile,
     buildEstimationSnapshot, addEstimationToAthlete, updateEstimationInAthlete, deleteEstimation, deleteAthlete, makeId,
   };
 }
