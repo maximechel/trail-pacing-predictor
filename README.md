@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=13`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=14`, `?v=15`…) dans `index.html`
+> `?v=14`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=15`, `?v=16`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -187,8 +187,11 @@ comprenant :
   comme tel sur le PDF) ;
 - sur ce graphique, un repère visuel (ligne pointillée + point) pour chaque ligne du tableau Pacing
   dont le champ **Repère** est renseigné, avec son nom, sa distance cumulée et son D+/D- ; les
-  étiquettes sont réparties **une fois sur deux au-dessus et une fois sur deux en-dessous** du
-  graphique pour rester lisibles même avec de nombreux repères rapprochés ;
+  étiquettes des repères intermédiaires sont réparties **une fois sur deux au-dessus et une fois sur
+  deux en-dessous** du graphique pour rester lisibles même avec de nombreux repères rapprochés. Le
+  **départ et l'arrivée** sont traités à part : placés tout en haut, dans une couleur différente
+  (rose) pour bien les distinguer, et alignés vers l'intérieur du graphique (plutôt que centrés) pour
+  ne jamais être tronqués en bord de page ;
 - un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (distance cumulée, D+, D-,
   temps du segment, **pause ravito** et temps cumulé). Le temps du segment est le temps de
   déplacement pur entre ce repère et le précédent repère renseigné (somme des segments

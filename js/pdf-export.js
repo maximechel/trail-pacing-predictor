@@ -185,7 +185,8 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const pts = profile.points;
   const padL = 80;
   const padR = 30;
-  const padTop = landmarks.length ? 70 : 40; // une seule rangée d'étiquettes en haut désormais
+  // +38 pour une rangée dédiée, tout en haut, au départ et à l'arrivée (cf. boucle des repères plus bas).
+  const padTop = landmarks.length ? 108 : 40;
   const padBottom = padAxisBottom + padLabelsBottom;
   const plotW = W - padL - padR;
   const plotH = H - padTop - padBottom;
@@ -239,12 +240,22 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  // Repères : ligne verticale pointillée + point + étiquette, alternée 1 repère sur 2 au-dessus du
-  // graphique et 1 sur 2 en-dessous (sous les graduations de distance) pour répartir les étiquettes
-  // et limiter les recouvrements, plutôt que de toutes les empiler du même côté.
+  // Repères : ligne verticale pointillée + point + étiquette. Départ et Arrivée sont un cas
+  // particulier : à l'extrémité gauche/droite du graphique, un texte centré déborderait du canvas et
+  // serait tronqué — ils sont donc alignés vers l'intérieur (gauche pour le départ, droite pour
+  // l'arrivée), placés sur une rangée dédiée tout en haut (au-dessus des autres étiquettes) et dans
+  // une couleur différente (rose de la marque) pour bien les distinguer des repères intermédiaires.
+  // Les repères intermédiaires alternent 1 sur 2 au-dessus / 1 sur 2 en-dessous du graphique pour
+  // répartir les étiquettes et limiter les recouvrements.
   const plotBottomY = H - padBottom; // haut de l'axe des distances (bas réel de la zone du graphique)
-  landmarks.forEach((lm, idx) => {
+  let middleRank = 0;
+  landmarks.forEach((lm) => {
     const x = xOf(lm.distCumFin);
+    // "Bord" = repère situé tout près du départ ou de l'arrivée réelle du parcours (pas juste le
+    // premier/dernier repère nommé) : un texte centré y déborderait du canvas et serait tronqué.
+    const isStart = lm.distCumFin <= maxDist * 0.02;
+    const isEnd = !isStart && lm.distCumFin >= maxDist * 0.98;
+    const isEdge = isStart || isEnd;
 
     let nearest = pts[0];
     let bestDiff = Infinity;
@@ -254,36 +265,50 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
     }
     const dotY = yOf(nearest.alt);
 
+    const lineColor = isEdge ? '#ff216a' : '#0505c5';
     ctx.setLineDash([7, 6]);
-    ctx.strokeStyle = '#0505c5';
+    ctx.strokeStyle = lineColor;
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(x, padTop); ctx.lineTo(x, plotBottomY); ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = '#0505c5';
+    ctx.fillStyle = lineColor;
     ctx.beginPath(); ctx.arc(x, dotY, 7, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
 
-    const onTop = idx % 2 === 0;
-    ctx.textAlign = 'center';
     const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`;
 
-    if (onTop) {
-      const labelBaseY = padTop - 14;
+    if (isEdge) {
+      ctx.textAlign = isStart ? 'left' : 'right';
+      const textX = isStart ? Math.max(x, padL) : Math.min(x, W - padR);
+      const nameY = 26;
       ctx.font = 'bold 21px -apple-system, sans-serif';
-      ctx.fillStyle = '#0505c5';
-      ctx.fillText(lm.label, x, labelBaseY - 20);
+      ctx.fillStyle = '#ff216a';
+      ctx.fillText(lm.label, textX, nameY);
       ctx.font = '18px -apple-system, sans-serif';
       ctx.fillStyle = '#444441';
-      ctx.fillText(kmLine, x, labelBaseY);
+      ctx.fillText(kmLine, textX, nameY + 24);
     } else {
-      const labelBaseY = plotBottomY + padAxisBottom + 26; // sous la ligne des graduations de distance
-      ctx.font = 'bold 21px -apple-system, sans-serif';
-      ctx.fillStyle = '#0505c5';
-      ctx.fillText(lm.label, x, labelBaseY);
-      ctx.font = '18px -apple-system, sans-serif';
-      ctx.fillStyle = '#444441';
-      ctx.fillText(kmLine, x, labelBaseY + 24);
+      const onTop = middleRank % 2 === 0;
+      middleRank += 1;
+      ctx.textAlign = 'center';
+      if (onTop) {
+        const labelBaseY = padTop - 14;
+        ctx.font = 'bold 21px -apple-system, sans-serif';
+        ctx.fillStyle = '#0505c5';
+        ctx.fillText(lm.label, x, labelBaseY - 20);
+        ctx.font = '18px -apple-system, sans-serif';
+        ctx.fillStyle = '#444441';
+        ctx.fillText(kmLine, x, labelBaseY);
+      } else {
+        const labelBaseY = plotBottomY + padAxisBottom + 26; // sous la ligne des graduations de distance
+        ctx.font = 'bold 21px -apple-system, sans-serif';
+        ctx.fillStyle = '#0505c5';
+        ctx.fillText(lm.label, x, labelBaseY);
+        ctx.font = '18px -apple-system, sans-serif';
+        ctx.fillStyle = '#444441';
+        ctx.fillText(kmLine, x, labelBaseY + 24);
+      }
     }
   });
 
