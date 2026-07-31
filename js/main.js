@@ -21,6 +21,7 @@ const state = {
   athletes: [],           // profils athlètes (cf. athletes.js)
   activeAthleteId: null,
   editingAthleteId: null, // id en cours de modification dans le formulaire (null = création)
+  loadedEstimationId: null, // id de l'estimation chargée depuis l'historique d'un athlète (null = nouvelle estimation)
 };
 
 function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
@@ -65,6 +66,24 @@ function recomputeAll() {
   renderAll();
 }
 
+/**
+ * Recalcule uniquement le pacing (temps V1/V2), sans retoucher aux segments/profils/auto — utilisé
+ * pour les réglages par ligne (intensité, technicité, conditions, pause) qui n'affectent pas la
+ * segmentation. Beaucoup plus léger que recomputeAll() sur une grosse reconnaissance GPS (plusieurs
+ * milliers de points/segments après un import multi-fichiers .fit), ce qui évite les ralentissements
+ * ou plantages perçus lors de clics répétés (ex. flèches d'un champ pause).
+ */
+function recomputePacingOnly() {
+  state.pacing = state.segments.length
+    ? computePacing(
+        state.segments, state.settings, state.profils || { coefMontee: 1, coefPlat: 1, coefMixte: 1, coefDescente: 1 },
+        state.auto.distanceTotaleKm, state.categorie, state.globalDefaults, state.rowOverrides,
+      )
+    : null;
+
+  renderAll();
+}
+
 function renderAll() {
   // Paramètres
   $('#param-nom').value = state.courseNom;
@@ -95,7 +114,7 @@ function renderAll() {
 
   // Athlètes
   renderAthletesList(state.athletes, state.activeAthleteId, {
-    onSelect: selectAthlete, onEdit: editAthlete, onDelete: deleteAthleteUI,
+    onSelect: selectAthlete, onDeselect: deselectAthlete, onEdit: editAthlete, onDelete: deleteAthleteUI,
   });
   const activeAthlete = state.athletes.find((a) => a.id === state.activeAthleteId) || null;
   renderEstimationsTable(activeAthlete, { onLoad: loadEstimation, onDelete: deleteEstimationUI });
@@ -104,16 +123,38 @@ function renderAll() {
 
 function updateSaveEstimationSection(activeAthlete) {
   const btn = $('#save-estimation-btn');
+  const btnAsNew = $('#save-estimation-as-new-btn');
   const hint = $('#save-estimation-hint');
-  if (activeAthlete) {
-    btn.style.display = state.pacing ? 'inline-block' : 'none';
-    hint.style.display = state.pacing ? 'none' : 'block';
-    hint.textContent = 'Importez une reconnaissance GPS (onglet Import) pour pouvoir enregistrer une estimation.';
-    $('#save-estimation-athlete-name').textContent = athleteFullName(activeAthlete);
-  } else {
+  const editingHint = $('#save-estimation-editing-hint');
+
+  const loadedEst = (activeAthlete && state.loadedEstimationId)
+    ? activeAthlete.estimations.find((e) => e.id === state.loadedEstimationId)
+    : null;
+
+  if (!activeAthlete) {
     btn.style.display = 'none';
+    btnAsNew.style.display = 'none';
+    editingHint.style.display = 'none';
     hint.style.display = 'block';
     hint.textContent = "Sélectionnez un athlète actif dans l'onglet Athlètes pour pouvoir enregistrer cette estimation dans son historique.";
+    return;
+  }
+
+  const hasPacing = !!state.pacing;
+  btn.style.display = hasPacing ? 'inline-block' : 'none';
+  hint.style.display = hasPacing ? 'none' : 'block';
+  hint.textContent = 'Importez une reconnaissance GPS (onglet Import) pour pouvoir enregistrer une estimation.';
+
+  if (loadedEst) {
+    const dateStr = new Date(loadedEst.dateModified || loadedEst.dateCreated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+    btn.textContent = `💾 Mettre à jour l'estimation du ${dateStr}`;
+    btnAsNew.style.display = hasPacing ? 'inline-block' : 'none';
+    editingHint.style.display = 'block';
+    editingHint.textContent = `Vous modifiez l'estimation « ${loadedEst.courseNom || 'sans nom'} » enregistrée le ${dateStr} pour ${athleteFullName(activeAthlete)}. Vous pouvez mettre à jour cette entrée, ou enregistrer vos changements comme une nouvelle estimation séparée.`;
+  } else {
+    btn.textContent = `💾 Enregistrer dans le profil de ${athleteFullName(activeAthlete)}`;
+    btnAsNew.style.display = 'none';
+    editingHint.style.display = 'none';
   }
 }
 
@@ -135,8 +176,16 @@ function persistAthletes() {
 }
 
 function selectAthlete(id) {
-  state.activeAthleteId = (state.activeAthleteId === id) ? null : id; // re-cliquer désélectionne
+  state.activeAthleteId = id;
+  state.loadedEstimationId = null; // changer d'athlète actif : on ne "modifie" plus une estimation d'un autre athlète
   try { localStorage.setItem(STORAGE_KEY_ACTIVE_ATHLETE, state.activeAthleteId || ''); } catch (e) { /* ignore */ }
+  renderAll();
+}
+
+function deselectAthlete() {
+  state.activeAthleteId = null;
+  state.loadedEstimationId = null;
+  try { localStorage.setItem(STORAGE_KEY_ACTIVE_ATHLETE, ''); } catch (e) { /* ignore */ }
   renderAll();
 }
 
@@ -159,7 +208,7 @@ function deleteAthleteUI(id) {
   if (!athlete) return;
   if (!confirm(`Supprimer l'athlète ${athleteFullName(athlete)} et ses ${athlete.estimations.length} estimation(s) ?`)) return;
   state.athletes = deleteAthlete(state.athletes, id);
-  if (state.activeAthleteId === id) state.activeAthleteId = null;
+  if (state.activeAthleteId === id) { state.activeAthleteId = null; state.loadedEstimationId = null; }
   persistAthletes();
   renderAll();
 }
@@ -179,6 +228,7 @@ function loadEstimation(estimationId) {
   state.globalDefaults = { ...est.globalDefaults };
   state.rowOverrides = JSON.parse(JSON.stringify(est.rowOverrides || {}));
   state.rowMeta = JSON.parse(JSON.stringify(est.rowMeta || {}));
+  state.loadedEstimationId = estimationId; // permet de "mettre à jour" cette même entrée en la resauvegardant
 
   recomputeAll();
   goToTab('pacing');
@@ -187,6 +237,7 @@ function loadEstimation(estimationId) {
 function deleteEstimationUI(estimationId) {
   if (!confirm('Supprimer cette estimation ?')) return;
   deleteEstimation(state.athletes, state.activeAthleteId, estimationId);
+  if (state.loadedEstimationId === estimationId) state.loadedEstimationId = null;
   persistAthletes();
   renderAll();
 }
@@ -380,6 +431,7 @@ function analyzeCSV(text) {
     state.csvRows = rows;
     state.rowOverrides = {};
     state.rowMeta = {};
+    state.loadedEstimationId = null; // une nouvelle reconnaissance GPS = une nouvelle estimation, pas une modification
     const auto = computeCourseAutoFields(rows);
     state.categorie = suggestCategorie(auto.distanceTotaleKm);
     statusEl.className = 'status ok';
@@ -436,6 +488,7 @@ function wireImportTab() {
     state.pacing = null;
     state.rowOverrides = {};
     state.rowMeta = {};
+    state.loadedEstimationId = null;
     $('#import-status').textContent = '';
     recomputeAll();
   });
@@ -536,7 +589,10 @@ function wirePacingTab() {
     } else {
       state.rowOverrides[seg][field] = target.value;
     }
-    recomputeAll();
+    // Réglages par ligne (intensité/technicité/conditions/pause) : ne changent pas la segmentation,
+    // un recalcul complet (recomputeAll) est inutile et coûteux sur une grosse trace GPS — on ne
+    // recalcule que le pacing pour rester réactif (cf. flèches du champ pause).
+    recomputePacingOnly();
   });
 
   // Champ "Repère" : mise à jour de l'état à chaque frappe, sans reconstruire le tableau
@@ -564,12 +620,37 @@ function wirePacingTab() {
 
   $('#save-estimation-btn').addEventListener('click', () => {
     if (!state.activeAthleteId || !state.pacing) return;
+    const athlete = state.athletes.find((a) => a.id === state.activeAthleteId);
+    if (!athlete) return;
+    const snapshot = buildEstimationSnapshot(state);
+    const statusEl = $('#save-estimation-status');
+    const stillExists = state.loadedEstimationId && athlete.estimations.some((e) => e.id === state.loadedEstimationId);
+
+    if (stillExists) {
+      updateEstimationInAthlete(state.athletes, state.activeAthleteId, state.loadedEstimationId, snapshot);
+      statusEl.textContent = `✔ Estimation mise à jour dans le profil de ${athleteFullName(athlete)}.`;
+    } else {
+      addEstimationToAthlete(state.athletes, state.activeAthleteId, snapshot);
+      state.loadedEstimationId = snapshot.id; // resauvegarder mettra désormais à jour cette nouvelle entrée
+      statusEl.textContent = `✔ Estimation enregistrée dans le profil de ${athleteFullName(athlete)}.`;
+    }
+    persistAthletes();
+    statusEl.className = 'status ok';
+    renderAll();
+  });
+
+  $('#save-estimation-as-new-btn').addEventListener('click', () => {
+    if (!state.activeAthleteId || !state.pacing) return;
+    const athlete = state.athletes.find((a) => a.id === state.activeAthleteId);
+    if (!athlete) return;
     const snapshot = buildEstimationSnapshot(state);
     addEstimationToAthlete(state.athletes, state.activeAthleteId, snapshot);
+    state.loadedEstimationId = snapshot.id;
     persistAthletes();
     const statusEl = $('#save-estimation-status');
     statusEl.className = 'status ok';
-    statusEl.textContent = `✔ Estimation enregistrée dans le profil de ${$('#save-estimation-athlete-name').textContent}.`;
+    statusEl.textContent = `✔ Nouvelle estimation enregistrée dans le profil de ${athleteFullName(athlete)}.`;
+    renderAll();
   });
 
   const pdfBtn = $('#generate-pdf-btn');

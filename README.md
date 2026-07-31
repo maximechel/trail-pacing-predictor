@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=11`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=12`, `?v=13`…) dans `index.html`
+> `?v=12`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=13`, `?v=14`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -75,13 +75,21 @@ L'application suit exactement le même pipeline que les onglets du classeur Exce
 
 L'onglet **1. Athlètes** permet de créer un profil par coureur pour lequel vous réalisez des prédictions :
 prénom, nom, âge, taille, poids et VMA. Sélectionnez un athlète comme **actif** (bouton « Sélectionner » sur
-sa fiche) : un bouton **« Enregistrer dans le profil de … »** apparaît alors dans l'onglet Pacing une fois une
-estimation calculée. Chaque enregistrement conserve le nom de la course, la catégorie, les segments, le
-profil GPS calculé, les réglages (intensité/technicité/conditions par segment) et les résultats V1/V2 — vous
-pouvez ainsi accumuler plusieurs estimations pour un même athlète et les recharger à tout moment (bouton
-« 📂 Charger » dans la liste des estimations). Tout est sauvegardé dans le `localStorage` du navigateur ; la
-taille, l'âge, le poids et la VMA sont pour l'instant purement informatifs et n'influencent pas le calcul du
-pacing (qui reste basé sur les vitesses mesurées lors de la reconnaissance GPS).
+sa fiche, qui devient un badge « ✔ Actif » non cliquable une fois sélectionné — un bouton « Désélectionner »
+séparé apparaît si besoin, pour éviter de perdre la sélection par un re-clic accidentel) : un bouton
+**« Enregistrer dans le profil de … »** apparaît alors dans l'onglet Pacing une fois une estimation calculée.
+Chaque enregistrement conserve le nom de la course, la catégorie, les segments, le profil GPS calculé, les
+réglages (intensité/technicité/conditions par segment) et les résultats V1/V2 — vous pouvez ainsi accumuler
+plusieurs estimations pour un même athlète et les recharger à tout moment (bouton « 📂 Charger » dans la
+liste des estimations). Tout est sauvegardé dans le `localStorage` du navigateur ; la taille, l'âge, le
+poids et la VMA sont pour l'instant purement informatifs et n'influencent pas le calcul du pacing (qui reste
+basé sur les vitesses mesurées lors de la reconnaissance GPS).
+
+**Modifier une estimation déjà enregistrée** : après avoir chargé une estimation existante (« 📂 Charger »)
+et modifié des réglages dans l'onglet Pacing, le bouton d'enregistrement se transforme en
+**« 💾 Mettre à jour l'estimation du … »** : vos changements remplacent cette même entrée (au lieu d'en
+créer une copie). Un bouton secondaire **« 🆕 Enregistrer comme nouvelle estimation »** reste disponible si
+vous préférez garder l'ancienne version et en créer une nouvelle à côté.
 
 ### Import FIT → CSV
 
@@ -170,9 +178,9 @@ il exporte l'intégralité du tableau comme avant.
 Dans l'onglet **Pacing**, le bouton **« 🖨 Générer le PDF »** produit un document A4 téléchargeable
 comprenant :
 
-- un en-tête avec votre logo et le titre « Prévisionnel d'allure pour la course *(nom saisi dans
-  l'onglet Paramètres)* », suivi du kilométrage total, du D+, du D-, de la catégorie et du nom de
-  l'athlète actif (le cas échéant) ;
+- un en-tête avec votre logo, le titre « Prévisionnel d'allure pour la course *(nom saisi dans
+  l'onglet Paramètres)* », le **nom de l'athlète actif** sur sa propre ligne bien visible (le cas
+  échéant), puis le kilométrage total, le D+, le D- et la catégorie ;
 - le profil altimétrique du parcours (aire verte), reconstruit à partir des points GPS de la
   reconnaissance importée — ou, si une estimation a été rechargée depuis un profil athlète (sans
   points GPS bruts), un profil approximatif recalculé à partir des D+/D- de chaque segment (signalé
@@ -180,10 +188,10 @@ comprenant :
 - sur ce graphique, un repère visuel (ligne pointillée + point) pour chaque ligne du tableau Pacing
   dont le champ **Repère** est renseigné, avec son nom, sa distance cumulée et son D+/D- ;
 - un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (distance cumulée, D+, D-,
-  temps du segment et temps cumulé). Le temps du segment est calculé très exactement entre ce
-  repère et le précédent repère renseigné (et non le seul segment automatique sur lequel il tombe),
-  ce qui donne un temps de trajet exact entre deux points du roadbook même s'il y a des segments
-  intermédiaires non nommés ;
+  temps du segment, **pause ravito** et temps cumulé). Le temps du segment est le temps de
+  déplacement pur entre ce repère et le précédent repère renseigné (somme des segments
+  intermédiaires, y compris non nommés) — la pause ravito de ce repère est volontairement exclue du
+  temps de segment et affichée séparément dans sa propre colonne, pour ne pas la compter deux fois ;
 - un bandeau de pied de page avec le logo Ruthene Coach'in — Pôle sport & santé
   (`assets/footer-logo.png`) et les coordonnées du préparateur physique.
 

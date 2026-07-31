@@ -88,10 +88,14 @@ function getScaledDims(imgEl, maxHeight) {
 
 /**
  * Renvoie les lignes du pacing dont un repère (nom) a été renseigné, avec la distance cumulée
- * calculée (fin de segment), triées par ordre de parcours. Le temps de segment affiché n'est pas
- * le temps du seul segment automatique sur lequel tombe le repère, mais le temps V2 écoulé très
- * exactement entre ce repère et le repère précédent (somme de tous les segments intermédiaires,
- * y compris non nommés).
+ * calculée (fin de segment), triées par ordre de parcours.
+ *
+ * - `pause` : la pause ravito réglée sur cette ligne (min), affichée dans sa propre colonne.
+ * - `tempsSegment` : temps de déplacement pur entre ce repère et le repère précédent (somme des temps
+ *   V2 de tous les segments intermédiaires, y compris non nommés) — la pause ravito de CE repère en est
+ *   volontairement exclue (elle est déjà affichée à part) pour ne pas la compter deux fois.
+ * - `cumulV2` / `cumulV2HM` : temps cumulé total au départ de ce repère (pause ravito de ce repère
+ *   comprise), identique à la colonne "Temps cumulé" de l'onglet Pacing.
  */
 function getLandmarkRows(state) {
   if (!state.pacing) return [];
@@ -104,15 +108,16 @@ function getLandmarkRows(state) {
       distCumFin: (row.distCumDebut || 0) + (row.distanceKm || 0),
       dPlus: row.dPlus,
       dMinus: row.dMinus,
+      pause: row.pause || 0,
       cumulV2: row.cumulV2,
       cumulV2HM: row.cumulV2HM,
     }));
 
   let prevCumul = 0;
   rows.forEach((lm) => {
-    const cumul = (lm.cumulV2 !== null && lm.cumulV2 !== undefined) ? lm.cumulV2 : prevCumul;
-    lm.tempsSegment = excelRound(cumul - prevCumul, 1);
-    prevCumul = cumul;
+    const cumulDeparture = (lm.cumulV2 !== null && lm.cumulV2 !== undefined) ? lm.cumulV2 : prevCumul;
+    lm.tempsSegment = excelRound(cumulDeparture - prevCumul - lm.pause, 1);
+    prevCumul = cumulDeparture;
   });
 
   return rows;
@@ -304,19 +309,29 @@ async function generatePacingPDF(state) {
   doc.text(titleLines, textX, cursorY + 2);
   cursorY += 2 + titleLines.length * 6;
 
+  const activeAthlete = (state.athletes || []).find((a) => a.id === state.activeAthleteId) || null;
+  const subtitleWidth = pageWidth - textX - marginX;
+
+  // Nom de l'athlète mis en avant sur sa propre ligne (plus visible que noyé dans la ligne km/D+/D-).
+  if (activeAthlete) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11.5);
+    doc.setTextColor(...BRAND_BLUE_RGB);
+    const athleteLine = `👤 ${athleteFullName(activeAthlete)}`;
+    const athleteLines = doc.splitTextToSize(athleteLine, subtitleWidth);
+    doc.text(athleteLines, textX, cursorY + 3);
+    cursorY += 3 + athleteLines.length * 5.5;
+  }
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(90, 90, 90);
-  const activeAthlete = (state.athletes || []).find((a) => a.id === state.activeAthleteId) || null;
-  const subtitleParts = [
+  const subtitle = [
     `${fmtPdf(state.auto.distanceTotaleKm, 1)} km`,
     `D+ ${fmtPdf(state.auto.dPlusTotal, 0)} m`,
     `D- ${fmtPdf(state.auto.dMinusTotal, 0)} m`,
     `Catégorie : ${state.categorie}`,
-  ];
-  if (activeAthlete) subtitleParts.push(`Athlète : ${athleteFullName(activeAthlete)}`);
-  const subtitle = subtitleParts.join('   ·   ');
-  const subtitleWidth = pageWidth - textX - marginX;
+  ].join('   ·   ');
   const subtitleLines = doc.splitTextToSize(subtitle, subtitleWidth);
   doc.text(subtitleLines, textX, cursorY + 3);
   doc.setTextColor(0, 0, 0);
@@ -358,11 +373,12 @@ async function generatePacingPDF(state) {
       `${fmtPdf(lm.dPlus, 0)} m`,
       `${fmtPdf(lm.dMinus, 0)} m`,
       formatHM(lm.tempsSegment),
+      lm.pause > 0 ? `${fmtPdf(lm.pause, 0)} min` : '—',
       lm.cumulV2HM,
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'Temps segment', 'Temps cumulé']],
+      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'Temps segment', 'Pause ravito', 'Temps cumulé']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },

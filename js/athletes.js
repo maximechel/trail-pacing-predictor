@@ -71,6 +71,26 @@ function addEstimationToAthlete(athletes, athleteId, snapshot) {
   return true;
 }
 
+/**
+ * Met à jour une estimation déjà enregistrée (même id, même date de création) au lieu d'en créer une
+ * nouvelle — utilisé quand on a rechargé une estimation existante ("📂 Charger") pour la retoucher et
+ * qu'on veut enregistrer les changements sur cette même entrée plutôt que d'en accumuler une copie.
+ */
+function updateEstimationInAthlete(athletes, athleteId, estimationId, snapshot) {
+  const athlete = athletes.find((a) => a.id === athleteId);
+  if (!athlete) return false;
+  const idx = athlete.estimations.findIndex((e) => e.id === estimationId);
+  if (idx === -1) return false;
+  const original = athlete.estimations[idx];
+  athlete.estimations[idx] = {
+    ...snapshot,
+    id: estimationId,
+    dateCreated: original.dateCreated,
+    dateModified: new Date().toISOString(),
+  };
+  return true;
+}
+
 function deleteEstimation(athletes, athleteId, estimationId) {
   const athlete = athletes.find((a) => a.id === athleteId);
   if (!athlete) return false;
@@ -85,6 +105,6 @@ function deleteAthlete(athletes, athleteId) {
 if (typeof module !== 'undefined') {
   module.exports = {
     loadAthletes, saveAthletes, createAthlete, athleteFullName,
-    buildEstimationSnapshot, addEstimationToAthlete, deleteEstimation, deleteAthlete, makeId,
+    buildEstimationSnapshot, addEstimationToAthlete, updateEstimationInAthlete, deleteEstimation, deleteAthlete, makeId,
   };
 }

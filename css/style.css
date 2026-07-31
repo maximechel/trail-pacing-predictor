@@ -94,6 +94,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px; }
 .btn-primary:hover { background: var(--primary-dark); }
 .btn-secondary, .file-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
 .btn-secondary:hover, .file-btn:hover { background: #e9ede9; }
+.btn-secondary:disabled { opacity: 0.7; cursor: default; color: var(--primary-dark); border-color: var(--primary); }
+.btn-secondary:disabled:hover { background: var(--bg); }
 
 textarea#csv-textarea {
   width: 100%;

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=11" />
+<link rel="stylesheet" href="css/style.css?v=12" />
 </head>
 <body>
 <header class="app-header">
@@ -345,7 +345,11 @@
     <div class="card">
       <h2>💾 Enregistrer cette estimation</h2>
       <p id="save-estimation-hint" class="hint">Sélectionnez un athlète actif dans l'onglet Athlètes pour pouvoir enregistrer cette estimation dans son historique.</p>
-      <button id="save-estimation-btn" class="btn-primary" style="display:none;">💾 Enregistrer dans le profil de <span id="save-estimation-athlete-name"></span></button>
+      <p id="save-estimation-editing-hint" class="hint" style="display:none;"></p>
+      <div class="import-controls">
+        <button id="save-estimation-btn" class="btn-primary" style="display:none;"></button>
+        <button id="save-estimation-as-new-btn" class="btn-secondary" style="display:none;">🆕 Enregistrer comme nouvelle estimation</button>
+      </div>
       <div id="save-estimation-status" class="status"></div>
     </div>
   </section>
@@ -359,13 +363,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=11"></script>
-<script src="js/engine.js?v=11"></script>
-<script src="js/fit-parser.js?v=11"></script>
-<script src="js/fit-to-csv.js?v=11"></script>
-<script src="js/athletes.js?v=11"></script>
-<script src="js/pdf-export.js?v=11"></script>
-<script src="js/ui.js?v=11"></script>
-<script src="js/main.js?v=11"></script>
+<script src="js/data.js?v=12"></script>
+<script src="js/engine.js?v=12"></script>
+<script src="js/fit-parser.js?v=12"></script>
+<script src="js/fit-to-csv.js?v=12"></script>
+<script src="js/athletes.js?v=12"></script>
+<script src="js/pdf-export.js?v=12"></script>
+<script src="js/ui.js?v=12"></script>
+<script src="js/main.js?v=12"></script>
 </body>
 </html>

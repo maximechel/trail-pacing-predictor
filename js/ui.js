@@ -258,6 +258,22 @@ function pacingSpecialValue(col, row, rowMeta) {
 
 function renderPacingTable(pacing, settings, showAdvanced, rowMeta = {}) {
   const table = $('#pacing-table');
+
+  // Le tableau est entièrement reconstruit à chaque appel (thead/tbody/tfoot vidés puis recréés) : sans
+  // précaution, l'élément actuellement focus (ex. le champ "Pause ravito" en cours d'édition avec les
+  // flèches du clavier/spinner) est détruit et perd le focus au milieu de l'interaction. On mémorise ici
+  // quelle ligne/colonne était focus pour restaurer le focus (et la position du curseur) sur le nouvel
+  // élément équivalent une fois le tableau reconstruit.
+  const active = document.activeElement;
+  let focusRestore = null;
+  if (active && table.contains(active) && active.dataset && active.dataset.seg && active.dataset.field) {
+    focusRestore = {
+      seg: active.dataset.seg,
+      field: active.dataset.field,
+      selectionStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+    };
+  }
+
   table.classList.toggle('show-advanced', showAdvanced);
   const thead = table.querySelector('thead');
   const tbody = table.querySelector('tbody');
@@ -339,6 +355,16 @@ function renderPacingTable(pacing, settings, showAdvanced, rowMeta = {}) {
     footRow.appendChild(el('td', { class: col.adv ? 'adv' : '' }, String(totalsByKey[col.key] ?? '')));
   });
   tfoot.appendChild(footRow);
+
+  if (focusRestore) {
+    const newEl = tbody.querySelector(`[data-seg="${focusRestore.seg}"][data-field="${focusRestore.field}"]`);
+    if (newEl) {
+      newEl.focus();
+      if (focusRestore.selectionStart !== null && typeof newEl.setSelectionRange === 'function') {
+        try { newEl.setSelectionRange(focusRestore.selectionStart, focusRestore.selectionStart); } catch (e) { /* ignore (ex. input type=number) */ }
+      }
+    }
+  }
 }
 
 /**
@@ -401,14 +427,28 @@ function renderAthletesList(athletes, activeAthleteId, handlers) {
       el('div', { class: 'athlete-card-details' }, `${athlete.estimations.length} estimation${athlete.estimations.length > 1 ? 's' : ''} enregistrée${athlete.estimations.length > 1 ? 's' : ''}`),
     ]);
 
+    // Une fois actif, le bouton devient un badge non cliquable (pas un bascule) : re-cliquer dessus
+    // par erreur ne doit jamais désélectionner l'athlète sans le vouloir. La désélection volontaire
+    // passe par un bouton "Désélectionner" séparé, affiché seulement quand l'athlète est actif.
     const btnSelect = el('button', { class: 'btn-secondary' }, isActive ? '✔ Actif' : 'Sélectionner');
-    btnSelect.addEventListener('click', () => handlers.onSelect(athlete.id));
+    if (isActive) {
+      btnSelect.disabled = true;
+    } else {
+      btnSelect.addEventListener('click', () => handlers.onSelect(athlete.id));
+    }
     const btnEdit = el('button', { class: 'btn-secondary' }, '✎ Modifier');
     btnEdit.addEventListener('click', () => handlers.onEdit(athlete.id));
     const btnDelete = el('button', { class: 'btn-secondary' }, '🗑');
     btnDelete.addEventListener('click', () => handlers.onDelete(athlete.id));
 
-    const actions = el('div', { class: 'import-controls', style: 'margin-top:10px;' }, [btnSelect, btnEdit, btnDelete]);
+    const actionChildren = [btnSelect];
+    if (isActive) {
+      const btnDeselect = el('button', { class: 'btn-secondary' }, 'Désélectionner');
+      btnDeselect.addEventListener('click', () => handlers.onDeselect());
+      actionChildren.push(btnDeselect);
+    }
+    actionChildren.push(btnEdit, btnDelete);
+    const actions = el('div', { class: 'import-controls', style: 'margin-top:10px;' }, actionChildren);
     card.appendChild(actions);
     container.appendChild(card);
   });
@@ -433,7 +473,8 @@ function renderEstimationsTable(athlete, handlers) {
 
   card.style.display = 'block';
   athlete.estimations.forEach((est) => {
-    const dateStr = new Date(est.dateCreated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+    const dateStr = new Date(est.dateModified || est.dateCreated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+      + (est.dateModified ? ' (modifiée)' : '');
     const totals = est.pacingTotals;
     const tr = el('tr', {}, [
       el('td', {}, dateStr),
