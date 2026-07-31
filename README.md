@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=12`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=13`, `?v=14`…) dans `index.html`
+> `?v=13`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=14`, `?v=15`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -186,7 +186,9 @@ comprenant :
   points GPS bruts), un profil approximatif recalculé à partir des D+/D- de chaque segment (signalé
   comme tel sur le PDF) ;
 - sur ce graphique, un repère visuel (ligne pointillée + point) pour chaque ligne du tableau Pacing
-  dont le champ **Repère** est renseigné, avec son nom, sa distance cumulée et son D+/D- ;
+  dont le champ **Repère** est renseigné, avec son nom, sa distance cumulée et son D+/D- ; les
+  étiquettes sont réparties **une fois sur deux au-dessus et une fois sur deux en-dessous** du
+  graphique pour rester lisibles même avec de nombreux repères rapprochés ;
 - un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (distance cumulée, D+, D-,
   temps du segment, **pause ravito** et temps cumulé). Le temps du segment est le temps de
   déplacement pur entre ce repère et le précédent repère renseigné (somme des segments

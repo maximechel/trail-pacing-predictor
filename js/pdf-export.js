@@ -169,7 +169,12 @@ function buildElevationProfile(state) {
  */
 function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const W = 1700;
-  const H = 620;
+  // Repères alternés au-dessus ET en-dessous du graphique (1 sur 2 en haut, 1 sur 2 en bas) pour
+  // limiter les recouvrements — la hauteur totale du canvas est donc plus grande dès qu'il y a des
+  // repères, pour réserver de la place aux étiquettes du bas en plus de celles du haut.
+  const padAxisBottom = 60; // axe + graduations de distance (inchangé, jamais de repère ici)
+  const padLabelsBottom = landmarks.length ? 90 : 0; // étiquettes de repères "en bas", sous l'axe
+  const H = 620 + padLabelsBottom;
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -180,8 +185,8 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const pts = profile.points;
   const padL = 80;
   const padR = 30;
-  const padTop = landmarks.length ? 130 : 40;
-  const padBottom = 60;
+  const padTop = landmarks.length ? 70 : 40; // une seule rangée d'étiquettes en haut désormais
+  const padBottom = padAxisBottom + padLabelsBottom;
   const plotW = W - padL - padR;
   const plotH = H - padTop - padBottom;
 
@@ -234,7 +239,10 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  // Repères : ligne verticale pointillée + point + étiquette (empilée en alternance pour limiter les recouvrements)
+  // Repères : ligne verticale pointillée + point + étiquette, alternée 1 repère sur 2 au-dessus du
+  // graphique et 1 sur 2 en-dessous (sous les graduations de distance) pour répartir les étiquettes
+  // et limiter les recouvrements, plutôt que de toutes les empiler du même côté.
+  const plotBottomY = H - padBottom; // haut de l'axe des distances (bas réel de la zone du graphique)
   landmarks.forEach((lm, idx) => {
     const x = xOf(lm.distCumFin);
 
@@ -249,23 +257,34 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
     ctx.setLineDash([7, 6]);
     ctx.strokeStyle = '#0505c5';
     ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x, padTop); ctx.lineTo(x, H - padBottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, padTop); ctx.lineTo(x, plotBottomY); ctx.stroke();
     ctx.setLineDash([]);
 
     ctx.fillStyle = '#0505c5';
     ctx.beginPath(); ctx.arc(x, dotY, 7, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
 
-    const rowIdx = idx % 2;
-    const labelBaseY = padTop - 14 - rowIdx * 42;
-
+    const onTop = idx % 2 === 0;
     ctx.textAlign = 'center';
-    ctx.font = 'bold 21px -apple-system, sans-serif';
-    ctx.fillStyle = '#0505c5';
-    ctx.fillText(lm.label, x, labelBaseY - 20);
-    ctx.font = '18px -apple-system, sans-serif';
-    ctx.fillStyle = '#444441';
-    ctx.fillText(`${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`, x, labelBaseY);
+    const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`;
+
+    if (onTop) {
+      const labelBaseY = padTop - 14;
+      ctx.font = 'bold 21px -apple-system, sans-serif';
+      ctx.fillStyle = '#0505c5';
+      ctx.fillText(lm.label, x, labelBaseY - 20);
+      ctx.font = '18px -apple-system, sans-serif';
+      ctx.fillStyle = '#444441';
+      ctx.fillText(kmLine, x, labelBaseY);
+    } else {
+      const labelBaseY = plotBottomY + padAxisBottom + 26; // sous la ligne des graduations de distance
+      ctx.font = 'bold 21px -apple-system, sans-serif';
+      ctx.fillStyle = '#0505c5';
+      ctx.fillText(lm.label, x, labelBaseY);
+      ctx.font = '18px -apple-system, sans-serif';
+      ctx.fillStyle = '#444441';
+      ctx.fillText(kmLine, x, labelBaseY + 24);
+    }
   });
 
   return canvas;
@@ -317,7 +336,9 @@ async function generatePacingPDF(state) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11.5);
     doc.setTextColor(...BRAND_BLUE_RGB);
-    const athleteLine = `👤 ${athleteFullName(activeAthlete)}`;
+    // Pas d'emoji ici : les polices standard PDF (helvetica) ne savent pas les afficher et
+    // produisent des glyphes cassés (ex. "Ø=Üd" à la place de 👤) — texte brut uniquement.
+    const athleteLine = `Athlète : ${athleteFullName(activeAthlete)}`;
     const athleteLines = doc.splitTextToSize(athleteLine, subtitleWidth);
     doc.text(athleteLines, textX, cursorY + 3);
     cursorY += 3 + athleteLines.length * 5.5;
