@@ -94,30 +94,51 @@ function getScaledDims(imgEl, maxHeight) {
  * - `tempsSegment` : temps de déplacement pur entre ce repère et le repère précédent (somme des temps
  *   V2 de tous les segments intermédiaires, y compris non nommés) — la pause ravito de CE repère en est
  *   volontairement exclue (elle est déjà affichée à part) pour ne pas la compter deux fois.
+ * - `dPlus` / `dMinus` : D+/D- entre ce repère et le repère précédent (somme sur tous les segments
+ *   intermédiaires, y compris non nommés) — et non le D+/D- du seul segment portant le repère.
+ * - `dPlusCumul` / `dMinusCumul` : D+/D- cumulé depuis le départ de la course jusqu'à ce repère.
  * - `cumulV2` / `cumulV2HM` : temps cumulé total au départ de ce repère (pause ravito de ce repère
  *   comprise), identique à la colonne "Temps cumulé" de l'onglet Pacing.
  */
 function getLandmarkRows(state) {
   if (!state.pacing) return [];
-  const rows = state.pacing.rows
-    .filter((row) => state.rowMeta[row.numero] && state.rowMeta[row.numero].label && state.rowMeta[row.numero].label.trim() !== '')
-    .map((row) => ({
+
+  // Cumuls de D+/D- sur TOUS les segments du parcours (nommés ou non), dans l'ordre, pour pouvoir
+  // ensuite calculer à la fois le delta depuis le repère précédent et le cumul depuis le départ pour
+  // chaque repère nommé — même logique que `cumulV2` (déjà cumulé sur tous les segments).
+  let cumDPlus = 0;
+  let cumDMinus = 0;
+  const allRows = state.pacing.rows.map((row) => {
+    cumDPlus += row.dPlus || 0;
+    cumDMinus += row.dMinus || 0;
+    const meta = state.rowMeta[row.numero];
+    return {
       numero: row.numero,
-      label: state.rowMeta[row.numero].label.trim(),
+      label: meta && meta.label ? meta.label.trim() : '',
       type: row.type,
       distCumFin: (row.distCumDebut || 0) + (row.distanceKm || 0),
-      dPlus: row.dPlus,
-      dMinus: row.dMinus,
       pause: row.pause || 0,
       cumulV2: row.cumulV2,
       cumulV2HM: row.cumulV2HM,
-    }));
+      dPlusCumul: excelRound(cumDPlus, 1),
+      dMinusCumul: excelRound(cumDMinus, 1),
+    };
+  });
+
+  const rows = allRows.filter((row) => row.label !== '');
 
   let prevCumul = 0;
+  let prevDPlusCumul = 0;
+  let prevDMinusCumul = 0;
   rows.forEach((lm) => {
     const cumulDeparture = (lm.cumulV2 !== null && lm.cumulV2 !== undefined) ? lm.cumulV2 : prevCumul;
     lm.tempsSegment = excelRound(cumulDeparture - prevCumul - lm.pause, 1);
     prevCumul = cumulDeparture;
+
+    lm.dPlus = excelRound(lm.dPlusCumul - prevDPlusCumul, 1);
+    lm.dMinus = excelRound(lm.dMinusCumul - prevDMinusCumul, 1);
+    prevDPlusCumul = lm.dPlusCumul;
+    prevDMinusCumul = lm.dMinusCumul;
   });
 
   return rows;
@@ -421,18 +442,20 @@ async function generatePacingPDF(state) {
       `${fmtPdf(lm.distCumFin, 2)} km`,
       `${fmtPdf(lm.dPlus, 0)} m`,
       `${fmtPdf(lm.dMinus, 0)} m`,
+      `${fmtPdf(lm.dPlusCumul, 0)} m`,
+      `${fmtPdf(lm.dMinusCumul, 0)} m`,
       formatHM(lm.tempsSegment),
       lm.pause > 0 ? `${fmtPdf(lm.pause, 0)} min` : '—',
       lm.cumulV2HM,
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'Temps segment', 'Pause ravito', 'Temps cumulé']],
+      head: [['Repère', 'Distance cumulée', 'D+', 'D-', 'D+ cumulé', 'D- cumulé', 'Temps segment', 'Pause ravito', 'Temps cumulé']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
       alternateRowStyles: { fillColor: [244, 246, 245] },
-      styles: { fontSize: 9, cellPadding: 2.5 },
+      styles: { fontSize: 8.5, cellPadding: 2.2 },
       margin: { left: marginX, right: marginX, bottom: 26 },
     });
   }
