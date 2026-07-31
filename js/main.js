@@ -9,6 +9,7 @@ const state = {
   settings: null,       // tables de coefficients (cf. data.js), modifiable par l'utilisateur
   csvRows: null,         // lignes IMPORT_CSV parsées
   elevationProfile: null, // profil altimétrique échantillonné (repli quand csvRows est absent, ex. estimation rechargée)
+  gpxElevationProfile: null, // profil altimétrique du GPX officiel de la course, si chargé (prioritaire sur celui du FIT)
   segments: [],          // résultat SEGMENTS
   profils: null,         // résultat PROFILS
   auto: { distanceTotaleKm: 0, dPlusTotal: 0, dMinusTotal: 0 },
@@ -45,6 +46,7 @@ function saveDraft() {
     // Repli compact (échantillonné) au cas où les points bruts ci-dessus ne survivraient pas au
     // quota localStorage (cf. rattrapage ci-dessous) : garde un profil altimétrique précis malgré tout.
     elevationProfile: state.elevationProfile || downsampleElevationProfile(state.csvRows),
+    gpxElevationProfile: state.gpxElevationProfile,
     segments: state.segments,
     profils: state.profils,
     auto: state.auto,
@@ -168,6 +170,7 @@ function renderAll() {
   updateExportButtonLabel();
   const pdfBtn = $('#generate-pdf-btn');
   if (pdfBtn) pdfBtn.style.display = state.pacing ? 'inline-block' : 'none';
+  renderGpxStatus();
 
   // Athlètes
   renderAthletesList(state.athletes, state.activeAthleteId, {
@@ -226,6 +229,19 @@ function updateExportButtonLabel() {
     : '⬇ Exporter le pacing en CSV';
 }
 
+function renderGpxStatus() {
+  const statusEl = $('#gpx-status');
+  const resetBtn = $('#gpx-reset-btn');
+  if (!statusEl || !resetBtn) return;
+  if (state.gpxElevationProfile && state.gpxElevationProfile.length >= 2) {
+    statusEl.className = 'status ok';
+    statusEl.textContent = `✔ GPX officiel chargé (${state.gpxElevationProfile.length} points) — utilisé pour le profil altimétrique du PDF.`;
+    resetBtn.style.display = 'inline-block';
+  } else {
+    resetBtn.style.display = 'none';
+  }
+}
+
 // ---------- Athlètes ----------
 
 const STORAGE_KEY_ACTIVE_ATHLETE = 'trail-pacing-predictor:activeAthlete';
@@ -280,6 +296,7 @@ function loadEstimation(estimationId) {
 
   state.csvRows = null; // pas de points GPS bruts dans l'instantané : on repart des segments déjà calculés
   state.elevationProfile = est.elevationProfile || null; // profil altimétrique échantillonné (repli précis pour le PDF)
+  state.gpxElevationProfile = est.gpxElevationProfile || null;
   state.courseNom = est.courseNom;
   state.categorie = est.categorie;
   state.auto = { ...est.auto };
@@ -545,6 +562,7 @@ function wireImportTab() {
     $('#csv-textarea').value = '';
     state.csvRows = null;
     state.elevationProfile = null;
+    state.gpxElevationProfile = null;
     state.segments = [];
     state.profils = null;
     state.pacing = null;
@@ -552,6 +570,9 @@ function wireImportTab() {
     state.rowMeta = {};
     state.loadedEstimationId = null;
     $('#import-status').textContent = '';
+    $('#gpx-file-input').value = '';
+    $('#gpx-status').className = 'status';
+    $('#gpx-status').textContent = '';
     clearDraft();
     recomputeAll();
   });
@@ -720,6 +741,48 @@ function wirePacingTab() {
     renderAll();
   });
 
+  const gpxInput = $('#gpx-file-input');
+  if (gpxInput) {
+    gpxInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = $('#gpx-status');
+      statusEl.className = 'status';
+      statusEl.textContent = `⏳ Lecture de ${file.name}…`;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const rows = parseGpxElevationRows(reader.result);
+          state.gpxElevationProfile = downsampleElevationProfile(rows, 400);
+          if (!state.gpxElevationProfile) throw new Error("Profil altimétrique introuvable dans ce fichier.");
+          renderGpxStatus();
+          scheduleDraftSave();
+        } catch (err) {
+          state.gpxElevationProfile = null;
+          statusEl.className = 'status error';
+          statusEl.textContent = `✖ ${err.message}`;
+        }
+      };
+      reader.onerror = () => {
+        statusEl.className = 'status error';
+        statusEl.textContent = '✖ Impossible de lire ce fichier.';
+      };
+      reader.readAsText(file, 'UTF-8');
+    });
+  }
+
+  const gpxResetBtn = $('#gpx-reset-btn');
+  if (gpxResetBtn) {
+    gpxResetBtn.addEventListener('click', () => {
+      state.gpxElevationProfile = null;
+      $('#gpx-file-input').value = '';
+      $('#gpx-status').className = 'status';
+      $('#gpx-status').textContent = '';
+      renderGpxStatus();
+      scheduleDraftSave();
+    });
+  }
+
   const pdfBtn = $('#generate-pdf-btn');
   if (pdfBtn) {
     pdfBtn.addEventListener('click', async () => {
@@ -759,6 +822,7 @@ function init() {
     state.categorie = draft.categorie ?? state.categorie;
     state.csvRows = draft.csvRows ?? null;
     state.elevationProfile = draft.elevationProfile ?? null;
+    state.gpxElevationProfile = draft.gpxElevationProfile ?? null;
     state.segments = draft.segments ?? [];
     state.profils = draft.profils ?? null;
     state.auto = draft.auto ?? state.auto;

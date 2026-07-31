@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=16" />
+<link rel="stylesheet" href="css/style.css?v=17" />
 </head>
 <body>
 <header class="app-header">
@@ -338,6 +338,22 @@
         les lignes dont le champ <strong>Repère</strong> est renseigné (colonne « Repère » du tableau
         ci-dessus). Renseignez au moins un repère avant de générer le PDF.
       </p>
+
+      <p class="hint">
+        🗺️ Le profil altimétrique du graphique vient par défaut de votre reconnaissance GPS (.fit). Si le
+        relevé GPS est imprécis (dérive d'altitude sur plusieurs jours), chargez le <strong>tracé GPX
+        officiel de la course</strong> ci-dessous : son profil altimétrique sera utilisé à la place sur le
+        PDF, sans changer le reste (segments, temps, pacing restent basés sur votre reconnaissance).
+      </p>
+      <div class="import-controls">
+        <label class="file-btn">
+          🗺️ Charger le GPX officiel (profil altimétrique)
+          <input type="file" id="gpx-file-input" accept=".gpx" hidden />
+        </label>
+        <button id="gpx-reset-btn" class="btn-secondary" style="display:none;">↺ Revenir au profil de la reconnaissance GPS</button>
+      </div>
+      <div id="gpx-status" class="status"></div>
+
       <button id="generate-pdf-btn" class="btn-primary">🖨 Générer le PDF</button>
       <div id="pdf-status" class="status"></div>
     </div>
@@ -363,13 +379,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=16"></script>
-<script src="js/engine.js?v=16"></script>
-<script src="js/fit-parser.js?v=16"></script>
-<script src="js/fit-to-csv.js?v=16"></script>
-<script src="js/athletes.js?v=16"></script>
-<script src="js/pdf-export.js?v=16"></script>
-<script src="js/ui.js?v=16"></script>
-<script src="js/main.js?v=16"></script>
+<script src="js/data.js?v=17"></script>
+<script src="js/engine.js?v=17"></script>
+<script src="js/fit-parser.js?v=17"></script>
+<script src="js/fit-to-csv.js?v=17"></script>
+<script src="js/gpx-parser.js?v=17"></script>
+<script src="js/athletes.js?v=17"></script>
+<script src="js/pdf-export.js?v=17"></script>
+<script src="js/ui.js?v=17"></script>
+<script src="js/main.js?v=17"></script>
 </body>
 </html>

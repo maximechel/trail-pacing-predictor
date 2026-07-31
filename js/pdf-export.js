@@ -125,20 +125,27 @@ function getLandmarkRows(state) {
 
 /**
  * Construit le profil altimétrique (distance cumulée en km / altitude en m) à afficher sur le graphique,
- * du plus précis au moins précis selon ce qui est disponible :
- * 1. points GPS bruts de l'import en cours (profil fin, ré-échantillonné à ~400 points) ;
- * 2. profil échantillonné stocké dans l'estimation rechargée (`state.elevationProfile`) — bien plus
+ * du plus fiable au moins précis selon ce qui est disponible :
+ * 1. GPX officiel de la course, si chargé (`state.gpxElevationProfile`) — volontairement prioritaire sur
+ *    la reconnaissance GPS : un tracé officiel est généralement plus fiable qu'un relevé de montre sur
+ *    plusieurs jours (dérive d'altitude cumulée) ;
+ * 2. points GPS bruts de l'import en cours (profil fin, ré-échantillonné à ~400 points) ;
+ * 3. profil échantillonné stocké dans l'estimation rechargée (`state.elevationProfile`) — bien plus
  *    précis que la reconstruction depuis les seuls D+/D- des segments, disponible même sans les points
  *    GPS bruts complets (non conservés dans l'historique athlète pour rester léger) ;
- * 3. profil approximatif (altitude relative, départ à 0) reconstruit depuis les D+/D- des segments —
- *    dernier repli si aucune des deux sources précédentes n'est disponible.
+ * 4. profil approximatif (altitude relative, départ à 0) reconstruit depuis les D+/D- des segments —
+ *    dernier repli si aucune des sources précédentes n'est disponible.
  */
 function buildElevationProfile(state) {
+  if (state.gpxElevationProfile && state.gpxElevationProfile.length >= 2) {
+    return { points: state.gpxElevationProfile, source: 'gpx' };
+  }
+
   const fromRaw = downsampleElevationProfile(state.csvRows);
-  if (fromRaw) return { points: fromRaw, approximate: false };
+  if (fromRaw) return { points: fromRaw, source: 'fit' };
 
   if (state.elevationProfile && state.elevationProfile.length >= 2) {
-    return { points: state.elevationProfile, approximate: false };
+    return { points: state.elevationProfile, source: 'fit' };
   }
 
   // Dernier repli : profil approximatif reconstruit depuis les segments (altitude relative, départ à 0).
@@ -150,7 +157,7 @@ function buildElevationProfile(state) {
     alt += (seg.dPlus || 0) - (seg.dMinus || 0);
     points.push({ distKm: cum, alt });
   });
-  return { points, approximate: true };
+  return { points, source: 'approximate' };
 }
 
 /**
@@ -385,10 +392,16 @@ async function generatePacingPDF(state) {
   doc.addImage(chartDataUrl, 'PNG', marginX, cursorY, chartW, chartH);
   cursorY += chartH + 4;
 
-  if (profile.approximate) {
+  if (profile.source === 'approximate') {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text("Profil altimétrique approximatif (estimation reconstruite depuis les segments, sans les points GPS bruts).", marginX, cursorY + 3);
+    doc.setTextColor(0, 0, 0);
+    cursorY += 6;
+  } else if (profile.source === 'gpx') {
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Profil altimétrique basé sur le tracé GPX officiel de la course.", marginX, cursorY + 3);
     doc.setTextColor(0, 0, 0);
     cursorY += 6;
   }

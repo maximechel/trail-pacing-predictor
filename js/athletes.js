@@ -91,6 +91,9 @@ function buildEstimationSnapshot(state) {
     rowMeta: JSON.parse(JSON.stringify(state.rowMeta)),
     pacingTotals: state.pacing ? state.pacing.totals : null,
     elevationProfile: state.elevationProfile || downsampleElevationProfile(state.csvRows),
+    // Profil altimétrique du GPX officiel de la course, s'il a été chargé — prioritaire sur celui de la
+    // reconnaissance GPS pour le PDF (cf. buildElevationProfile dans pdf-export.js).
+    gpxElevationProfile: state.gpxElevationProfile || null,
   };
 }
 

@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=16`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=17`, `?v=18`…) dans `index.html`
+> `?v=17`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=18`, `?v=19`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -192,10 +192,12 @@ comprenant :
 - un en-tête avec votre logo, le titre « Prévisionnel d'allure pour la course *(nom saisi dans
   l'onglet Paramètres)* », le **nom de l'athlète actif** sur sa propre ligne bien visible (le cas
   échéant), puis le kilométrage total, le D+, le D- et la catégorie ;
-- le profil altimétrique du parcours (aire verte), reconstruit à partir des points GPS de la
-  reconnaissance importée — ou, si une estimation a été rechargée depuis un profil athlète (sans
-  points GPS bruts), un profil approximatif recalculé à partir des D+/D- de chaque segment (signalé
-  comme tel sur le PDF) ;
+- le profil altimétrique du parcours (aire verte). Par ordre de priorité : le **GPX officiel de la
+  course** si vous en avez chargé un (voir ci-dessous) — plus fiable qu'un relevé de montre sur
+  plusieurs jours ; sinon les points GPS bruts de la reconnaissance importée (.fit) ; sinon, si une
+  estimation a été rechargée depuis un profil athlète (sans points GPS bruts), le profil échantillonné
+  conservé dans cette estimation ; et en tout dernier recours, un profil approximatif recalculé à
+  partir des D+/D- de chaque segment (signalé comme tel sur le PDF) ;
 - sur ce graphique, un repère visuel (ligne pointillée + point) pour chaque ligne du tableau Pacing
   dont le champ **Repère** est renseigné, avec son nom, sa distance cumulée et son D+/D- ; les
   étiquettes des repères intermédiaires sont réparties **une fois sur deux au-dessus et une fois sur
@@ -215,6 +217,18 @@ Renseignez donc au moins un **Repère** dans le tableau Pacing avant de génére
 tableau et les annotations du graphique soient utiles. La génération se fait entièrement dans le
 navigateur (librairies jsPDF / jspdf-autotable chargées depuis un CDN), sans envoi de données à un
 serveur.
+
+#### Profil altimétrique de référence (GPX officiel)
+
+Si le relevé GPS de votre reconnaissance (.fit) est imprécis — dérive d'altitude sur plusieurs jours,
+montre sans altimètre barométrique fiable — vous pouvez charger le **tracé GPX officiel de la course**
+dans la carte « Export PDF » de l'onglet Pacing (bouton « 🗺️ Charger le GPX officiel »). Son profil
+altimétrique remplace alors celui de la reconnaissance GPS **uniquement sur le graphique du PDF** : les
+segments, les temps et le pacing restent basés sur votre reconnaissance GPS, seule l'allure du relief
+affichée change. Le fichier est analysé localement (traces `trkpt`, routes `rtept` ou points isolés
+`wpt`, dans cet ordre de priorité) et le profil retenu est conservé si vous enregistrez l'estimation
+dans le profil d'un athlète. Un bouton « ↺ Revenir au profil de la reconnaissance GPS » permet de
+retirer le GPX à tout moment.
 
 ## ⚙ Personnalisation
 
@@ -244,6 +258,7 @@ trail-pacing-predictor/
 │   ├── engine.js                 Moteur de calcul (port fidèle des formules Excel)
 │   ├── fit-parser.js             Lecteur binaire du format .fit (Garmin FIT)
 │   ├── fit-to-csv.js             Dérivation des 16 colonnes IMPORT_CSV depuis des points GPS bruts
+│   ├── gpx-parser.js             Extraction du profil altimétrique depuis un fichier GPX officiel
 │   ├── athletes.js               Gestion des profils athlètes et de leurs estimations
 │   ├── pdf-export.js             Génération du PDF roadbook (profil dénivelé + tableau repères)
 │   ├── ui.js                     Rendu des tableaux et formulaires
