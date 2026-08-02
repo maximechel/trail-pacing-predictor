@@ -31,6 +31,26 @@ function fmtPdfInt(n) {
   return String(excelRound(n, 0));
 }
 
+/**
+ * Calcule l'heure de passage à un repère à partir de l'heure de départ officielle ("HH:MM") et du
+ * temps cumulé écoulé (en minutes) depuis le départ. Gère le passage à un jour suivant (courses
+ * longues sur plusieurs jours) en ajoutant un suffixe compact "+Nj" (sans espace, pour ne jamais
+ * provoquer de retour à la ligne dans une cellule de tableau étroite). Renvoie `null` si l'heure de
+ * départ n'est pas renseignée ou invalide.
+ */
+function computeArrivalClock(startTimeStr, cumulMinutes) {
+  if (!startTimeStr || cumulMinutes === null || cumulMinutes === undefined || Number.isNaN(cumulMinutes)) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(startTimeStr).trim());
+  if (!m) return null;
+  const startTotalMin = Number(m[1]) * 60 + Number(m[2]);
+  const totalMin = Math.round(startTotalMin + cumulMinutes);
+  const dayOffset = Math.floor(totalMin / 1440);
+  const minOfDay = totalMin - dayOffset * 1440;
+  const hh = String(Math.floor(minOfDay / 60)).padStart(2, '0');
+  const mm = String(minOfDay % 60).padStart(2, '0');
+  return dayOffset > 0 ? `${hh}:${mm}+${dayOffset}j` : `${hh}:${mm}`;
+}
+
 function slugify(text) {
   return (text || 'pacing')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -110,6 +130,8 @@ function getScaledDims(imgEl, maxHeight) {
  * - `dPlusCumul` / `dMinusCumul` : D+/D- cumulé depuis le départ de la course jusqu'à ce repère.
  * - `cumulV2` / `cumulV2HM` : temps cumulé total au départ de ce repère (pause ravito de ce repère
  *   comprise), identique à la colonne "Temps cumulé" de l'onglet Pacing.
+ * - `heureArrivee` : heure de passage estimée (horloge), calculée depuis `state.heureDepart` + le
+ *   temps cumulé — `null` si aucune heure de départ n'a été renseignée.
  */
 function getLandmarkRows(state) {
   if (!state.pacing) return [];
@@ -150,6 +172,8 @@ function getLandmarkRows(state) {
     lm.dMinus = excelRound(lm.dMinusCumul - prevDMinusCumul, 1);
     prevDPlusCumul = lm.dPlusCumul;
     prevDMinusCumul = lm.dMinusCumul;
+
+    lm.heureArrivee = state.heureDepart ? computeArrivalClock(state.heureDepart, lm.cumulV2) : null;
   });
 
   return rows;
@@ -458,15 +482,19 @@ async function generatePacingPDF(state) {
       formatHM(lm.tempsSegment),
       lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
       lm.cumulV2HM,
+      lm.heureArrivee || '—',
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)', 'Temps segment', 'Pause ravito (min)', 'Temps cumulé']],
+      head: [['Repère', 'Distance cumulée', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)', 'Temps segment', 'Pause ravito (min)', 'Temps cumulé', 'Heure passage']],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
       alternateRowStyles: { fillColor: [244, 246, 245] },
-      styles: { fontSize: 8.5, cellPadding: 2.2 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      // Largeur minimale réservée aux colonnes courtes mais sans espace (donc jamais de retour à la
+      // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
+      columnStyles: { 9: { cellWidth: 18, halign: 'center' } },
       margin: { left: marginX, right: marginX, bottom: 26 },
     });
   }
@@ -504,6 +532,6 @@ async function generatePacingPDF(state) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    slugify, fmtPdfInt, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
+    slugify, fmtPdfInt, computeArrivalClock, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
   };
 }

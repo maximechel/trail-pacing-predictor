@@ -83,6 +83,7 @@ function buildEstimationSnapshot(state) {
     dateCreated: new Date().toISOString(),
     courseNom: state.courseNom,
     categorie: state.categorie,
+    heureDepart: state.heureDepart || null,
     auto: { ...state.auto },
     segments: state.segments,
     profils: state.profils,

@@ -15,6 +15,7 @@ const state = {
   auto: { distanceTotaleKm: 0, dPlusTotal: 0, dMinusTotal: 0 },
   categorie: '< 30 km',
   courseNom: 'Trail de reconnaissance 2026',
+  heureDepart: null,     // heure de départ officielle ("HH:MM"), pour calculer l'heure de passage à chaque repère du PDF
   globalDefaults: { intensite: 'Facile (endurance)', technicite: 'Modérée (singletrack)', conditions: 'Sec, bon sol' },
   rowOverrides: {},       // { [numero]: { intensite, technicite, conditions, pause } }
   rowMeta: {},            // { [numero]: { selected, label } } — purement présentationnel (repères, export)
@@ -42,6 +43,7 @@ function saveDraft() {
   const draft = {
     courseNom: state.courseNom,
     categorie: state.categorie,
+    heureDepart: state.heureDepart,
     csvRows: state.csvRows,
     // Repli compact (échantillonné) au cas où les points bruts ci-dessus ne survivraient pas au
     // quota localStorage (cf. rattrapage ci-dessous) : garde un profil altimétrique précis malgré tout.
@@ -146,6 +148,7 @@ function recomputePacingOnly() {
 function renderAll() {
   // Paramètres
   $('#param-nom').value = state.courseNom;
+  $('#param-heure-depart').value = state.heureDepart || '';
   $('#param-distance').value = state.segments.length ? `${fmt(state.auto.distanceTotaleKm, 1)} km` : '—';
   $('#param-dplus').value = state.segments.length ? `${fmt(state.auto.dPlusTotal, 0)} m` : '—';
   $('#param-dminus').value = state.segments.length ? `${fmt(state.auto.dMinusTotal, 0)} m` : '—';
@@ -299,6 +302,7 @@ function loadEstimation(estimationId) {
   state.gpxElevationProfile = est.gpxElevationProfile || null;
   state.courseNom = est.courseNom;
   state.categorie = est.categorie;
+  state.heureDepart = est.heureDepart ?? null;
   state.auto = { ...est.auto };
   state.segments = est.segments;
   state.profils = est.profils;
@@ -585,6 +589,11 @@ function wireParametresTab() {
     state.courseNom = e.target.value;
     scheduleDraftSave();
   });
+  $('#param-heure-depart').addEventListener('input', (e) => {
+    // heure de départ non renseignée = champ vidé -> repli sur null (pas de colonne "Heure passage" au PDF)
+    state.heureDepart = e.target.value || null;
+    scheduleDraftSave();
+  });
   $('#param-categorie').addEventListener('change', (e) => { state.categorie = e.target.value; recomputeAll(); });
   $('#reset-settings-btn').addEventListener('click', () => {
     if (!confirm('Réinitialiser toutes les tables de coefficients aux valeurs par défaut ?')) return;
@@ -820,6 +829,7 @@ function init() {
   if (draft) {
     state.courseNom = draft.courseNom ?? state.courseNom;
     state.categorie = draft.categorie ?? state.categorie;
+    state.heureDepart = draft.heureDepart ?? null;
     state.csvRows = draft.csvRows ?? null;
     state.elevationProfile = draft.elevationProfile ?? null;
     state.gpxElevationProfile = draft.gpxElevationProfile ?? null;
