@@ -10,6 +10,10 @@
 const BRAND_BLUE_RGB = [5, 5, 197];
 const CHART_GREEN_LINE = '#3f9450';
 const CHART_GREEN_FILL = 'rgba(63,148,80,0.22)';
+// Vert du graphique altimétrique, réutilisé comme second bandeau d'en-tête du tableau des repères :
+// bleu = colonnes utiles au coureur pendant sa course, vert = colonnes utiles à l'assistance (ce qui
+// l'attend au ravito suivant, prévu pour la logistique plutôt que pour la lecture en course).
+const ASSIST_GREEN_RGB = [63, 148, 80];
 
 /**
  * Formate un nombre pour un rendu jsPDF : `fmt()` insère un espace fine insécable (séparateur de
@@ -511,24 +515,28 @@ async function generatePacingPDF(state) {
     doc.text("Aucun repère renseigné : ajoutez un nom dans la colonne « Repère » du tableau Pacing pour qu'il apparaisse ici.", marginX, cursorY + 5);
     doc.setTextColor(0, 0, 0);
   } else {
+    // Ordre des colonnes pensé en deux blocs : le premier (bandeau bleu) regroupe ce qui est utile au
+    // coureur en train de courir (où il en est) ; le second (bandeau vert, même vert que le graphique
+    // altimétrique) regroupe ce qui sert surtout à l'assistance/logistique (ce qui l'attend ensuite).
+    const ASSIST_COL_START = 6; // index de la première colonne "assistance" ("Distance suivante")
     const body = landmarks.map((lm) => [
       lm.label,
       fmtPdf(lm.distCumFin, 2),
       fmtPdfInt(lm.dPlusCumul),
       fmtPdfInt(lm.dMinusCumul),
+      lm.cumulV2HM,
+      lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
       (lm.distNext !== null && lm.distNext !== undefined) ? fmtPdf(lm.distNext, 2) : '—',
       (lm.dPlusNext !== null && lm.dPlusNext !== undefined) ? fmtPdfInt(lm.dPlusNext) : '—',
       (lm.dMinusNext !== null && lm.dMinusNext !== undefined) ? fmtPdfInt(lm.dMinusNext) : '—',
       formatHM(lm.tempsSegment),
-      lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
-      lm.cumulV2HM,
       lm.heureArrivee || '—',
     ]);
     doc.autoTable({
       startY: cursorY,
       head: [[
-        'Repère', 'Distance cumulée (km)', 'D+ cumulé', 'D- cumulé',
-        'Distance suivante (km)', 'D+ suivant', 'D- suivant', 'Temps segment', 'Ravito (min)', 'Temps cumulé', 'Heure passage',
+        'Repère', 'Distance cumulée (km)', 'D+ cumulé', 'D- cumulé', 'Temps cumulé', 'Ravito (min)',
+        'Distance suivante (km)', 'D+ suivant', 'D- suivant', 'Temps segment', 'Heure passage',
       ]],
       body,
       theme: 'striped',
@@ -537,10 +545,18 @@ async function generatePacingPDF(state) {
       styles: { fontSize: 7.5, cellPadding: 1.8 },
       columnStyles: {
         0: { fontStyle: 'bold' }, // Repère : nom du point mis en avant
-        8: { cellWidth: 13 },     // Ravito : colonne resserrée (valeurs courtes, souvent "—")
+        5: { cellWidth: 13 },     // Ravito : colonne resserrée (valeurs courtes, souvent "—")
         // Largeur minimale réservée aux colonnes courtes mais sans espace (donc jamais de retour à la
         // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
         10: { cellWidth: 17, halign: 'center' },
+      },
+      // Bandeau d'en-tête à deux couleurs : bleu pour les colonnes "coureur", vert pour les colonnes
+      // "assistance" (à partir de ASSIST_COL_START) — uniquement l'en-tête, le corps du tableau garde
+      // ses rayures habituelles pour ne pas surcharger la lecture des données.
+      didParseCell: (data) => {
+        if (data.section === 'head' && data.column.index >= ASSIST_COL_START) {
+          data.cell.styles.fillColor = ASSIST_GREEN_RGB;
+        }
       },
       margin: { left: marginX, right: marginX, bottom: 26 },
     });
