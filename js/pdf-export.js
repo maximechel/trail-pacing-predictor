@@ -194,9 +194,10 @@ function getLandmarkRows(state) {
   });
 
   // Le premier repère nommé est par convention le départ de la course : toutes ses valeurs
-  // numériques valent 0 (rien n'a encore été parcouru), sauf l'heure de passage qui reprend l'heure
-  // de départ renseignée telle quelle (et non "heure de départ + temps cumulé", qui pourrait être
-  // légèrement non nul si ce premier repère n'est pas exactement au tout premier point du parcours).
+  // numériques valent 0 (rien n'a encore été parcouru), sauf l'heure de passage (qui reprend l'heure
+  // de départ renseignée telle quelle) et la distance/D+ jusqu'au repère suivant, qui restent les
+  // vraies valeurs calculées ci-dessus — c'est justement l'information utile à afficher au départ
+  // (ce qu'il reste à parcourir avant le premier ravito).
   if (rows.length > 0) {
     const first = rows[0];
     first.distCumFin = 0;
@@ -208,8 +209,6 @@ function getLandmarkRows(state) {
     first.pause = 0;
     first.cumulV2 = 0;
     first.cumulV2HM = formatHM(0);
-    first.distNext = 0;
-    first.dPlusNext = 0;
     first.heureArrivee = state.heureDepart || null;
   }
 
@@ -526,8 +525,8 @@ async function generatePacingPDF(state) {
     doc.autoTable({
       startY: cursorY,
       head: [[
-        'Repère', 'Distance cumulée (km)', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)',
-        'Distance suivante (km)', 'D+ suivant (m)', 'Temps segment', 'Pause ravito (min)', 'Temps cumulé', 'Heure passage',
+        'Repère', 'Distance cumulée (km)', 'D+', 'D-', 'D+ cumulé', 'D- cumulé',
+        'Distance suivante (km)', 'D+ suivant', 'Temps segment', 'Ravito (min)', 'Temps cumulé', 'Heure passage',
       ]],
       body,
       theme: 'striped',
