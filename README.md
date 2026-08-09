@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=25`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=26`, `?v=27`…) dans `index.html`
+> `?v=26`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=27`, `?v=28`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -209,22 +209,23 @@ comprenant :
   deux blocs de colonnes visuellement distincts par la couleur de leur bandeau d'en-tête : un bandeau
   **bleu** pour ce qui est utile au coureur pendant sa course (distance cumulée, D+ cumulé, D- cumulé,
   temps cumulé, ravito), puis un bandeau **vert** (même vert que le graphique altimétrique) pour ce qui
-  sert surtout à l'assistance/logistique (distance, D+ et D- jusqu'au repère suivant, temps du
-  segment, heure de passage) — seul l'en-tête change de couleur, le corps du tableau garde ses rayures
-  habituelles. Le D+ cumulé et le D- cumulé indiquent le dénivelé total depuis le départ de la course
-  jusqu'à ce repère ; la distance, le D+ et le D- « suivants » indiquent, à l'inverse, ce qu'il reste à
-  parcourir entre ce repère et le prochain (utile pour savoir, en quittant un ravito, ce qui attend
-  avant le prochain) — vide (« — ») pour le dernier repère, qui n'a pas de suivant. Le temps du
-  segment est le temps de déplacement pur entre ce repère et le précédent repère renseigné — la pause
-  ravito de ce repère est volontairement exclue du temps de segment et affichée séparément dans sa
-  propre colonne « Ravito » (resserrée, pour laisser plus de place aux autres), pour ne pas la compter
-  deux fois. L'unité (min) de la colonne Ravito est indiquée dans l'en-tête ; les colonnes D+
-  cumulé/D- cumulé/D+ suivant/D- suivant n'affichent, elles, aucune unité (ni en en-tête ni en cellule
-  — leur nature est déjà explicite), pour rester aussi compactes que possible. Le premier repère (le
-  départ) affiche 0 dans toutes les colonnes numériques — par définition, rien n'a encore été parcouru
-  au départ — à l'exception de l'heure de passage (qui reprend telle quelle l'heure de départ
-  renseignée) et, justement, de la distance, du D+ et du D- jusqu'au repère suivant, qui restent
-  affichés en vraies valeurs sur cette ligne (c'est l'information la plus utile à connaître avant de
+  sert surtout à l'assistance/logistique (distance, D+, D- **et temps prévisionnel jusqu'au repère
+  suivant**, heure de passage) — seul l'en-tête change de couleur, le corps du tableau garde ses
+  rayures habituelles. Le D+ cumulé et le D- cumulé indiquent le dénivelé total depuis le départ de la
+  course jusqu'à ce repère ; la distance, le D+, le D- **et le temps de segment « suivants »**
+  indiquent, à l'inverse et **tous ensemble sur la même ligne**, ce qu'il reste à parcourir (et le
+  temps que ça devrait prendre) entre ce repère et le prochain — ainsi l'assistance n'a besoin que
+  d'une seule ligne pour savoir combien de kilomètres, de D+, de D- et de temps l'attendent avant le
+  prochain ravito, sans avoir à regarder la ligne suivante — vide (« — ») pour le dernier repère, qui
+  n'a pas de suivant. La pause ravito de ce repère est affichée séparément dans sa propre colonne
+  « Ravito » (resserrée, pour laisser plus de place aux autres). L'unité (min) de la colonne Ravito
+  est indiquée dans l'en-tête ; les colonnes D+ cumulé/D- cumulé/D+ suivant/D- suivant n'affichent,
+  elles, aucune unité (ni en en-tête ni en cellule — leur nature est déjà explicite), pour rester aussi
+  compactes que possible. Le premier repère (le départ) affiche 0 dans toutes les colonnes numériques
+  — par définition, rien n'a encore été parcouru au départ — à l'exception de l'heure de passage (qui
+  reprend telle quelle l'heure de départ
+  renseignée) et, justement, de la distance, du D+, du D- et du temps de segment jusqu'au repère
+  suivant, qui restent affichés en vraies valeurs sur cette ligne (c'est l'information la plus utile à connaître avant de
   s'élancer) ;
 - si une **heure de départ** a été renseignée (champ « Heure de départ » de la carte « Informations
   sur la course », onglet Paramètres), la colonne **Heure de passage** calcule automatiquement

@@ -128,7 +128,13 @@ function getScaledDims(imgEl, maxHeight) {
  * - `pause` : la pause ravito réglée sur cette ligne (min), affichée dans sa propre colonne.
  * - `tempsSegment` : temps de déplacement pur entre ce repère et le repère précédent (somme des temps
  *   V2 de tous les segments intermédiaires, y compris non nommés) — la pause ravito de CE repère en est
- *   volontairement exclue (elle est déjà affichée à part) pour ne pas la compter deux fois.
+ *   volontairement exclue (elle est déjà affichée à part) pour ne pas la compter deux fois. Non affiché
+ *   directement dans le tableau du PDF (seul `tempsSegmentNext`, ci-dessous, l'est), mais utilisé en
+ *   interne pour le calculer.
+ * - `tempsSegmentNext` : le `tempsSegment` du repère SUIVANT, vu depuis cette ligne — même logique de
+ *   décalage que `distNext`/`dPlusNext`/`dMinusNext` : permet à l'assistance de lire, sur une seule
+ *   ligne, la distance, le D+, le D- ET le temps prévisionnel jusqu'au prochain ravito, sans changer
+ *   de ligne. `null` pour le dernier repère (l'arrivée), qui n'a pas de suivant.
  * - `dPlus` / `dMinus` : D+/D- entre ce repère et le repère précédent (somme sur tous les segments
  *   intermédiaires, y compris non nommés) — et non le D+/D- du seul segment portant le repère. Non
  *   affichés directement dans le tableau du PDF (seuls les cumuls et les valeurs "suivant" le sont),
@@ -190,14 +196,17 @@ function getLandmarkRows(state) {
     lm.heureArrivee = state.heureDepart ? computeArrivalClock(state.heureDepart, lm.cumulV2) : null;
   });
 
-  // Distance/D+/D- jusqu'au repère suivant : lookahead sur le tableau déjà rempli ci-dessus (chaque
-  // repère connaît désormais sa propre distance cumulée et son propre D+/D- "depuis le précédent", qui
-  // est exactement la distance/D+/D- "jusqu'au suivant" vu depuis la ligne d'avant).
+  // Distance/D+/D-/temps jusqu'au repère suivant : lookahead sur le tableau déjà rempli ci-dessus
+  // (chaque repère connaît désormais sa propre distance cumulée, son propre D+/D- et son propre temps
+  // "depuis le précédent", qui est exactement la distance/D+/D-/temps "jusqu'au suivant" vu depuis la
+  // ligne d'avant). Objectif : que l'assistance lise, sur UNE seule ligne, tout ce qui l'attend avant
+  // le prochain ravito (distance, D+, D- ET temps prévisionnel), sans avoir à changer de ligne.
   rows.forEach((lm, i) => {
     const next = rows[i + 1];
     lm.distNext = next ? excelRound(next.distCumFin - lm.distCumFin, 2) : null;
     lm.dPlusNext = next ? next.dPlus : null;
     lm.dMinusNext = next ? next.dMinus : null;
+    lm.tempsSegmentNext = next ? next.tempsSegment : null;
   });
 
   // Le premier repère nommé est par convention le départ de la course : toutes ses valeurs
@@ -529,14 +538,14 @@ async function generatePacingPDF(state) {
       (lm.distNext !== null && lm.distNext !== undefined) ? fmtPdf(lm.distNext, 2) : '—',
       (lm.dPlusNext !== null && lm.dPlusNext !== undefined) ? fmtPdfInt(lm.dPlusNext) : '—',
       (lm.dMinusNext !== null && lm.dMinusNext !== undefined) ? fmtPdfInt(lm.dMinusNext) : '—',
-      formatHM(lm.tempsSegment),
+      (lm.tempsSegmentNext !== null && lm.tempsSegmentNext !== undefined) ? formatHM(lm.tempsSegmentNext) : '—',
       lm.heureArrivee || '—',
     ]);
     doc.autoTable({
       startY: cursorY,
       head: [[
         'Repère', 'Distance cumulée (km)', 'D+ cumulé', 'D- cumulé', 'Temps cumulé', 'Ravito (min)',
-        'Distance suivante (km)', 'D+ suivant', 'D- suivant', 'Temps segment', 'Heure passage',
+        'Distance suivante (km)', 'D+ suivant', 'D- suivant', 'Temps segment suivant', 'Heure passage',
       ]],
       body,
       theme: 'striped',
