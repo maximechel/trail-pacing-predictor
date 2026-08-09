@@ -36,6 +36,20 @@ function fmtPdfInt(n) {
 }
 
 /**
+ * Variante PDF de `formatHM()` (colonnes "Temps cumulé" / "Temps segment suivant" uniquement — le
+ * format standard "Xh YYmin", utilisé partout ailleurs dans l'app, n'est pas modifié) : dès que
+ * l'heure affichée est au moins 1h, le suffixe "min" (déjà implicite vu le "h" qui précède) est
+ * retiré pour rester plus compact — ex. "1h 27min" -> "1h 27", mais "0h 02min" reste inchangé (sans
+ * le "h", "02" seul serait ambigu : minutes ou quoi d'autre ?).
+ */
+function formatHMPdf(minutes) {
+  const full = formatHM(minutes);
+  if (!full) return full;
+  const h = Math.floor((minutes || 0) / 60);
+  return h >= 1 ? full.replace(/min$/, '') : full;
+}
+
+/**
  * Calcule l'heure de passage à un repère à partir de l'heure de départ officielle ("HH:MM") et du
  * temps cumulé écoulé (en minutes) depuis le départ. Gère le passage à un jour suivant (courses
  * longues sur plusieurs jours) en ajoutant un suffixe compact "+Nj" (sans espace, pour ne jamais
@@ -533,12 +547,12 @@ async function generatePacingPDF(state) {
       fmtPdf(lm.distCumFin, 2),
       fmtPdfInt(lm.dPlusCumul),
       fmtPdfInt(lm.dMinusCumul),
-      lm.cumulV2HM,
+      formatHMPdf(lm.cumulV2),
       lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
       (lm.distNext !== null && lm.distNext !== undefined) ? fmtPdf(lm.distNext, 2) : '—',
       (lm.dPlusNext !== null && lm.dPlusNext !== undefined) ? fmtPdfInt(lm.dPlusNext) : '—',
       (lm.dMinusNext !== null && lm.dMinusNext !== undefined) ? fmtPdfInt(lm.dMinusNext) : '—',
-      (lm.tempsSegmentNext !== null && lm.tempsSegmentNext !== undefined) ? formatHM(lm.tempsSegmentNext) : '—',
+      (lm.tempsSegmentNext !== null && lm.tempsSegmentNext !== undefined) ? formatHMPdf(lm.tempsSegmentNext) : '—',
       lm.heureArrivee || '—',
     ]);
     doc.autoTable({
@@ -604,6 +618,6 @@ async function generatePacingPDF(state) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    slugify, fmtPdfInt, computeArrivalClock, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
+    slugify, fmtPdfInt, formatHMPdf, computeArrivalClock, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
   };
 }

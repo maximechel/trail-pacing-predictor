@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=26`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=27`, `?v=28`…) dans `index.html`
+> `?v=27`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=28`, `?v=29`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -221,7 +221,10 @@ comprenant :
   « Ravito » (resserrée, pour laisser plus de place aux autres). L'unité (min) de la colonne Ravito
   est indiquée dans l'en-tête ; les colonnes D+ cumulé/D- cumulé/D+ suivant/D- suivant n'affichent,
   elles, aucune unité (ni en en-tête ni en cellule — leur nature est déjà explicite), pour rester aussi
-  compactes que possible. Le premier repère (le départ) affiche 0 dans toutes les colonnes numériques
+  compactes que possible. Dans les colonnes « Temps cumulé » et « Temps segment suivant », le suffixe
+  « min » est retiré dès que l'heure affichée atteint au moins 1h (ex. « 1h 27min » devient « 1h 27 »,
+  mais « 0h 02min » reste inchangé — sans le « h » qui précède, un « 02 » seul serait ambigu). Le
+  premier repère (le départ) affiche 0 dans toutes les colonnes numériques
   — par définition, rien n'a encore été parcouru au départ — à l'exception de l'heure de passage (qui
   reprend telle quelle l'heure de départ
   renseignée) et, justement, de la distance, du D+, du D- et du temps de segment jusqu'au repère
