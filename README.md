@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=27`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=28`, `?v=29`…) dans `index.html`
+> `?v=28`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=29`, `?v=30`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -208,7 +208,8 @@ comprenant :
 - un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (nom **en gras**), organisé en
   deux blocs de colonnes visuellement distincts par la couleur de leur bandeau d'en-tête : un bandeau
   **bleu** pour ce qui est utile au coureur pendant sa course (distance cumulée, D+ cumulé, D- cumulé,
-  temps cumulé, ravito), puis un bandeau **vert** (même vert que le graphique altimétrique) pour ce qui
+  temps cumulé, ravito), puis un bandeau **rose** (couleur du logo Ruthène Coach'in, déjà utilisée
+  pour les repères Départ/Arrivée du graphique) pour ce qui
   sert surtout à l'assistance/logistique (distance, D+, D- **et temps prévisionnel jusqu'au repère
   suivant**, heure de passage) — seul l'en-tête change de couleur, le corps du tableau garde ses
   rayures habituelles. Le D+ cumulé et le D- cumulé indiquent le dénivelé total depuis le départ de la

@@ -10,10 +10,12 @@
 const BRAND_BLUE_RGB = [5, 5, 197];
 const CHART_GREEN_LINE = '#3f9450';
 const CHART_GREEN_FILL = 'rgba(63,148,80,0.22)';
-// Vert du graphique altimétrique, réutilisé comme second bandeau d'en-tête du tableau des repères :
-// bleu = colonnes utiles au coureur pendant sa course, vert = colonnes utiles à l'assistance (ce qui
-// l'attend au ravito suivant, prévu pour la logistique plutôt que pour la lecture en course).
-const ASSIST_GREEN_RGB = [63, 148, 80];
+// Rose du logo Ruthène Coach'in (assets/logo.png — les deux couleurs dominantes du logo sont ce rose
+// et le bleu de BRAND_BLUE_RGB ci-dessus, déjà utilisé), réutilisé comme second bandeau d'en-tête du
+// tableau des repères : bleu = colonnes utiles au coureur pendant sa course, rose = colonnes utiles à
+// l'assistance (ce qui l'attend au ravito suivant, prévu pour la logistique plutôt que la course).
+// Même rose que les repères Départ/Arrivée sur le graphique altimétrique (cohérence visuelle globale).
+const ASSIST_PINK_RGB = [255, 33, 106];
 
 /**
  * Formate un nombre pour un rendu jsPDF : `fmt()` insère un espace fine insécable (séparateur de
@@ -539,8 +541,8 @@ async function generatePacingPDF(state) {
     doc.setTextColor(0, 0, 0);
   } else {
     // Ordre des colonnes pensé en deux blocs : le premier (bandeau bleu) regroupe ce qui est utile au
-    // coureur en train de courir (où il en est) ; le second (bandeau vert, même vert que le graphique
-    // altimétrique) regroupe ce qui sert surtout à l'assistance/logistique (ce qui l'attend ensuite).
+    // coureur en train de courir (où il en est) ; le second (bandeau rose, couleur du logo) regroupe
+    // ce qui sert surtout à l'assistance/logistique (ce qui l'attend ensuite).
     const ASSIST_COL_START = 6; // index de la première colonne "assistance" ("Distance suivante")
     const body = landmarks.map((lm) => [
       lm.label,
@@ -573,12 +575,12 @@ async function generatePacingPDF(state) {
         // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
         10: { cellWidth: 17, halign: 'center' },
       },
-      // Bandeau d'en-tête à deux couleurs : bleu pour les colonnes "coureur", vert pour les colonnes
-      // "assistance" (à partir de ASSIST_COL_START) — uniquement l'en-tête, le corps du tableau garde
-      // ses rayures habituelles pour ne pas surcharger la lecture des données.
+      // Bandeau d'en-tête à deux couleurs : bleu pour les colonnes "coureur", rose (couleur du logo)
+      // pour les colonnes "assistance" (à partir de ASSIST_COL_START) — uniquement l'en-tête, le corps
+      // du tableau garde ses rayures habituelles pour ne pas surcharger la lecture des données.
       didParseCell: (data) => {
         if (data.section === 'head' && data.column.index >= ASSIST_COL_START) {
-          data.cell.styles.fillColor = ASSIST_GREEN_RGB;
+          data.cell.styles.fillColor = ASSIST_PINK_RGB;
         }
       },
       margin: { left: marginX, right: marginX, bottom: 26 },
