@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=28`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=29`, `?v=30`…) dans `index.html`
+> `?v=29`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=30`, `?v=31`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -205,7 +205,8 @@ comprenant :
   **départ et l'arrivée** sont traités à part : placés tout en haut, dans une couleur différente
   (rose) pour bien les distinguer, et alignés vers l'intérieur du graphique (plutôt que centrés) pour
   ne jamais être tronqués en bord de page ;
-- un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (nom **en gras**), organisé en
+- un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (nom **en gras**, toutes les
+  cellules centrées horizontalement et verticalement, en-tête comme corps), organisé en
   deux blocs de colonnes visuellement distincts par la couleur de leur bandeau d'en-tête : un bandeau
   **bleu** pour ce qui est utile au coureur pendant sa course (distance cumulée, D+ cumulé, D- cumulé,
   temps cumulé, ravito), puis un bandeau **rose** (couleur du logo Ruthène Coach'in, déjà utilisée

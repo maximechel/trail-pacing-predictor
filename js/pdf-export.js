@@ -567,13 +567,16 @@ async function generatePacingPDF(state) {
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
       alternateRowStyles: { fillColor: [244, 246, 245] },
-      styles: { fontSize: 7.5, cellPadding: 1.8 },
+      // Centrage horizontal ET vertical de toutes les cellules (en-tête comme corps) — y compris la
+      // colonne Repère (dont le nom reste en gras via columnStyles ci-dessous), pour une lecture plus
+      // homogène du tableau.
+      styles: { fontSize: 7.5, cellPadding: 1.8, halign: 'center', valign: 'middle' },
       columnStyles: {
         0: { fontStyle: 'bold' }, // Repère : nom du point mis en avant
         5: { cellWidth: 13 },     // Ravito : colonne resserrée (valeurs courtes, souvent "—")
         // Largeur minimale réservée aux colonnes courtes mais sans espace (donc jamais de retour à la
         // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
-        10: { cellWidth: 17, halign: 'center' },
+        10: { cellWidth: 17 },
       },
       // Bandeau d'en-tête à deux couleurs : bleu pour les colonnes "coureur", rose (couleur du logo)
       // pour les colonnes "assistance" (à partir de ASSIST_COL_START) — uniquement l'en-tête, le corps
