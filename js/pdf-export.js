@@ -126,13 +126,15 @@ function getScaledDims(imgEl, maxHeight) {
  *   V2 de tous les segments intermédiaires, y compris non nommés) — la pause ravito de CE repère en est
  *   volontairement exclue (elle est déjà affichée à part) pour ne pas la compter deux fois.
  * - `dPlus` / `dMinus` : D+/D- entre ce repère et le repère précédent (somme sur tous les segments
- *   intermédiaires, y compris non nommés) — et non le D+/D- du seul segment portant le repère.
+ *   intermédiaires, y compris non nommés) — et non le D+/D- du seul segment portant le repère. Non
+ *   affichés directement dans le tableau du PDF (seuls les cumuls et les valeurs "suivant" le sont),
+ *   mais utilisés en interne pour les calculer.
  * - `dPlusCumul` / `dMinusCumul` : D+/D- cumulé depuis le départ de la course jusqu'à ce repère.
  * - `cumulV2` / `cumulV2HM` : temps cumulé total au départ de ce repère (pause ravito de ce repère
  *   comprise), identique à la colonne "Temps cumulé" de l'onglet Pacing.
  * - `heureArrivee` : heure de passage estimée (horloge), calculée depuis `state.heureDepart` + le
  *   temps cumulé — `null` si aucune heure de départ n'a été renseignée.
- * - `distNext` / `dPlusNext` : distance et D+ entre ce repère et le repère SUIVANT (utile pour savoir,
+ * - `distNext` / `dPlusNext` / `dMinusNext` : distance, D+ et D- entre ce repère et le repère SUIVANT (utile pour savoir,
  *   en quittant un ravito, ce qu'il reste à parcourir avant le prochain) — `null` pour le dernier repère
  *   (l'arrivée), qui n'a pas de suivant.
  *
@@ -184,13 +186,14 @@ function getLandmarkRows(state) {
     lm.heureArrivee = state.heureDepart ? computeArrivalClock(state.heureDepart, lm.cumulV2) : null;
   });
 
-  // Distance/D+ jusqu'au repère suivant : lookahead sur le tableau déjà rempli ci-dessus (chaque
-  // repère connaît désormais sa propre distance cumulée et son propre D+ "depuis le précédent", qui
-  // est exactement la distance/D+ "jusqu'au suivant" vu depuis la ligne d'avant).
+  // Distance/D+/D- jusqu'au repère suivant : lookahead sur le tableau déjà rempli ci-dessus (chaque
+  // repère connaît désormais sa propre distance cumulée et son propre D+/D- "depuis le précédent", qui
+  // est exactement la distance/D+/D- "jusqu'au suivant" vu depuis la ligne d'avant).
   rows.forEach((lm, i) => {
     const next = rows[i + 1];
     lm.distNext = next ? excelRound(next.distCumFin - lm.distCumFin, 2) : null;
     lm.dPlusNext = next ? next.dPlus : null;
+    lm.dMinusNext = next ? next.dMinus : null;
   });
 
   // Le premier repère nommé est par convention le départ de la course : toutes ses valeurs
@@ -511,12 +514,11 @@ async function generatePacingPDF(state) {
     const body = landmarks.map((lm) => [
       lm.label,
       fmtPdf(lm.distCumFin, 2),
-      fmtPdfInt(lm.dPlus),
-      fmtPdfInt(lm.dMinus),
       fmtPdfInt(lm.dPlusCumul),
       fmtPdfInt(lm.dMinusCumul),
       (lm.distNext !== null && lm.distNext !== undefined) ? fmtPdf(lm.distNext, 2) : '—',
       (lm.dPlusNext !== null && lm.dPlusNext !== undefined) ? fmtPdfInt(lm.dPlusNext) : '—',
+      (lm.dMinusNext !== null && lm.dMinusNext !== undefined) ? fmtPdfInt(lm.dMinusNext) : '—',
       formatHM(lm.tempsSegment),
       lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
       lm.cumulV2HM,
@@ -525,8 +527,8 @@ async function generatePacingPDF(state) {
     doc.autoTable({
       startY: cursorY,
       head: [[
-        'Repère', 'Distance cumulée (km)', 'D+', 'D-', 'D+ cumulé', 'D- cumulé',
-        'Distance suivante (km)', 'D+ suivant', 'Temps segment', 'Ravito (min)', 'Temps cumulé', 'Heure passage',
+        'Repère', 'Distance cumulée (km)', 'D+ cumulé', 'D- cumulé',
+        'Distance suivante (km)', 'D+ suivant', 'D- suivant', 'Temps segment', 'Ravito (min)', 'Temps cumulé', 'Heure passage',
       ]],
       body,
       theme: 'striped',
@@ -535,10 +537,10 @@ async function generatePacingPDF(state) {
       styles: { fontSize: 7.5, cellPadding: 1.8 },
       columnStyles: {
         0: { fontStyle: 'bold' }, // Repère : nom du point mis en avant
-        9: { cellWidth: 13 },     // Pause ravito : colonne resserrée (valeurs courtes, souvent "—")
+        8: { cellWidth: 13 },     // Ravito : colonne resserrée (valeurs courtes, souvent "—")
         // Largeur minimale réservée aux colonnes courtes mais sans espace (donc jamais de retour à la
         // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
-        11: { cellWidth: 17, halign: 'center' },
+        10: { cellWidth: 17, halign: 'center' },
       },
       margin: { left: marginX, right: marginX, bottom: 26 },
     });
