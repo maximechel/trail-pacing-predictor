@@ -132,6 +132,14 @@ function getScaledDims(imgEl, maxHeight) {
  *   comprise), identique à la colonne "Temps cumulé" de l'onglet Pacing.
  * - `heureArrivee` : heure de passage estimée (horloge), calculée depuis `state.heureDepart` + le
  *   temps cumulé — `null` si aucune heure de départ n'a été renseignée.
+ * - `distNext` / `dPlusNext` : distance et D+ entre ce repère et le repère SUIVANT (utile pour savoir,
+ *   en quittant un ravito, ce qu'il reste à parcourir avant le prochain) — `null` pour le dernier repère
+ *   (l'arrivée), qui n'a pas de suivant.
+ *
+ * Cas particulier du premier repère (le départ) : toutes ses valeurs numériques sont forcées à 0 (par
+ * définition, rien n'a encore été parcouru/gravi/écoulé au départ), à l'exception de l'heure de
+ * passage qui reprend telle quelle l'heure de départ renseignée. Ceci n'efface aucune information :
+ * les mêmes valeurs (distance et D+ jusqu'au départ) restent visibles sur la ligne du repère suivant.
  */
 function getLandmarkRows(state) {
   if (!state.pacing) return [];
@@ -175,6 +183,35 @@ function getLandmarkRows(state) {
 
     lm.heureArrivee = state.heureDepart ? computeArrivalClock(state.heureDepart, lm.cumulV2) : null;
   });
+
+  // Distance/D+ jusqu'au repère suivant : lookahead sur le tableau déjà rempli ci-dessus (chaque
+  // repère connaît désormais sa propre distance cumulée et son propre D+ "depuis le précédent", qui
+  // est exactement la distance/D+ "jusqu'au suivant" vu depuis la ligne d'avant).
+  rows.forEach((lm, i) => {
+    const next = rows[i + 1];
+    lm.distNext = next ? excelRound(next.distCumFin - lm.distCumFin, 2) : null;
+    lm.dPlusNext = next ? next.dPlus : null;
+  });
+
+  // Le premier repère nommé est par convention le départ de la course : toutes ses valeurs
+  // numériques valent 0 (rien n'a encore été parcouru), sauf l'heure de passage qui reprend l'heure
+  // de départ renseignée telle quelle (et non "heure de départ + temps cumulé", qui pourrait être
+  // légèrement non nul si ce premier repère n'est pas exactement au tout premier point du parcours).
+  if (rows.length > 0) {
+    const first = rows[0];
+    first.distCumFin = 0;
+    first.dPlus = 0;
+    first.dMinus = 0;
+    first.dPlusCumul = 0;
+    first.dMinusCumul = 0;
+    first.tempsSegment = 0;
+    first.pause = 0;
+    first.cumulV2 = 0;
+    first.cumulV2HM = formatHM(0);
+    first.distNext = 0;
+    first.dPlusNext = 0;
+    first.heureArrivee = state.heureDepart || null;
+  }
 
   return rows;
 }
@@ -474,11 +511,13 @@ async function generatePacingPDF(state) {
   } else {
     const body = landmarks.map((lm) => [
       lm.label,
-      `${fmtPdf(lm.distCumFin, 2)} km`,
+      fmtPdf(lm.distCumFin, 2),
       fmtPdfInt(lm.dPlus),
       fmtPdfInt(lm.dMinus),
       fmtPdfInt(lm.dPlusCumul),
       fmtPdfInt(lm.dMinusCumul),
+      (lm.distNext !== null && lm.distNext !== undefined) ? fmtPdf(lm.distNext, 2) : '—',
+      (lm.dPlusNext !== null && lm.dPlusNext !== undefined) ? fmtPdfInt(lm.dPlusNext) : '—',
       formatHM(lm.tempsSegment),
       lm.pause > 0 ? fmtPdfInt(lm.pause) : '—',
       lm.cumulV2HM,
@@ -486,15 +525,22 @@ async function generatePacingPDF(state) {
     ]);
     doc.autoTable({
       startY: cursorY,
-      head: [['Repère', 'Distance cumulée', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)', 'Temps segment', 'Pause ravito (min)', 'Temps cumulé', 'Heure passage']],
+      head: [[
+        'Repère', 'Distance cumulée (km)', 'D+ (m)', 'D- (m)', 'D+ cumulé (m)', 'D- cumulé (m)',
+        'Distance suivante (km)', 'D+ suivant (m)', 'Temps segment', 'Pause ravito (min)', 'Temps cumulé', 'Heure passage',
+      ]],
       body,
       theme: 'striped',
       headStyles: { fillColor: BRAND_BLUE_RGB, textColor: 255 },
       alternateRowStyles: { fillColor: [244, 246, 245] },
-      styles: { fontSize: 8, cellPadding: 2 },
-      // Largeur minimale réservée aux colonnes courtes mais sans espace (donc jamais de retour à la
-      // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
-      columnStyles: { 9: { cellWidth: 18, halign: 'center' } },
+      styles: { fontSize: 7.5, cellPadding: 1.8 },
+      columnStyles: {
+        0: { fontStyle: 'bold' }, // Repère : nom du point mis en avant
+        9: { cellWidth: 13 },     // Pause ravito : colonne resserrée (valeurs courtes, souvent "—")
+        // Largeur minimale réservée aux colonnes courtes mais sans espace (donc jamais de retour à la
+        // ligne à proprement parler), pour éviter que l'algorithme d'auto-largeur ne les compresse trop.
+        11: { cellWidth: 17, halign: 'center' },
+      },
       margin: { left: marginX, right: marginX, bottom: 26 },
     });
   }

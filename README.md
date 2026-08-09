@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=21`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=22`, `?v=23`…) dans `index.html`
+> `?v=22`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=23`, `?v=24`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -205,17 +205,23 @@ comprenant :
   **départ et l'arrivée** sont traités à part : placés tout en haut, dans une couleur différente
   (rose) pour bien les distinguer, et alignés vers l'intérieur du graphique (plutôt que centrés) pour
   ne jamais être tronqués en bord de page ;
-- un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (distance cumulée, D+, D-,
-  **D+ cumulé, D- cumulé**, temps du segment, **pause ravito**, temps cumulé et **heure de
-  passage**). Le D+ et le D- de chaque ligne correspondent au dénivelé entre ce repère et le
-  précédent repère renseigné (somme des segments intermédiaires, y compris non nommés) — et non au
-  seul segment portant le repère ; le D+ cumulé et le D- cumulé indiquent, eux, le dénivelé total
-  depuis le départ de la course jusqu'à ce repère. Le temps du segment est le temps de déplacement
-  pur entre ce repère et le précédent repère renseigné (même logique de calcul que le D+/D- du
-  segment) — la pause ravito de ce repère est volontairement exclue du temps de segment et affichée
-  séparément dans sa propre colonne, pour ne pas la compter deux fois. Les unités (m, min) sont
-  indiquées dans l'en-tête de colonne plutôt que répétées dans chaque cellule, pour éviter tout
-  retour à la ligne ;
+- un tableau récapitulatif ne reprenant que ces mêmes lignes « Repère » (nom **en gras**, distance
+  cumulée, D+, D-, **D+ cumulé, D- cumulé**, **distance et D+ jusqu'au repère suivant**, temps du
+  segment, **pause ravito**, temps cumulé et **heure de passage**). Le D+ et le D- de chaque ligne
+  correspondent au dénivelé entre ce repère et le précédent repère renseigné (somme des segments
+  intermédiaires, y compris non nommés) — et non au seul segment portant le repère ; le D+ cumulé et
+  le D- cumulé indiquent, eux, le dénivelé total depuis le départ de la course jusqu'à ce repère ; la
+  distance et le D+ « suivants » indiquent, à l'inverse, ce qu'il reste à parcourir entre ce repère et
+  le prochain (utile pour savoir, en quittant un ravito, ce qui attend avant le prochain) — vide
+  (« — ») pour le dernier repère, qui n'a pas de suivant. Le temps du segment est le temps de
+  déplacement pur entre ce repère et le précédent repère renseigné (même logique de calcul que le
+  D+/D- du segment) — la pause ravito de ce repère est volontairement exclue du temps de segment et
+  affichée séparément dans sa propre colonne (resserrée, pour laisser plus de place aux autres), pour
+  ne pas la compter deux fois. Les unités (km, m, min) sont indiquées dans l'en-tête de colonne plutôt
+  que répétées dans chaque cellule, pour éviter tout retour à la ligne. Le premier repère (le départ)
+  affiche 0 dans toutes les colonnes numériques — par définition, rien n'a encore été parcouru au
+  départ — à l'exception de l'heure de passage, qui reprend telle quelle l'heure de départ renseignée
+  (ces mêmes valeurs restent visibles, non perdues, sur la ligne du repère suivant) ;
 - si une **heure de départ** a été renseignée (champ « Heure de départ » de la carte « Informations
   sur la course », onglet Paramètres), la colonne **Heure de passage** calcule automatiquement
   l'heure d'horloge estimée à chaque repère (heure de départ + temps cumulé). Pour les courses de
