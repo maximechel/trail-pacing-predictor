@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=30`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=31`, `?v=32`…) dans `index.html`
+> `?v=31`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=32`, `?v=33`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 

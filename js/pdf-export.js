@@ -325,7 +325,7 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
 
   const FONT_BOLD = 'bold 21px -apple-system, sans-serif';
   const FONT_REG = '18px -apple-system, sans-serif';
-  const LABEL_MARGIN = 16; // marge de sécurité entre deux étiquettes voisines d'un même niveau
+  const LABEL_MARGIN = 60; // marge de sécurité entre deux étiquettes voisines d'un même niveau
 
   // Mesure du texte AVANT de connaître la taille finale du canvas (measureText ne dépend que de la
   // police, pas des dimensions du canvas) : un canvas de mesure jetable suffit.
@@ -360,10 +360,10 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const topTierCount = packLabelTiers(topItems);
   const bottomTierCount = packLabelTiers(bottomItems);
 
-  const TOP_BASE = 64;
-  const TOP_TIER_H = 44;
-  const BOTTOM_BASE = 90;
-  const BOTTOM_TIER_H = 44;
+  const TOP_BASE = 70;
+  const TOP_TIER_H = 56;
+  const BOTTOM_BASE = 100;
+  const BOTTOM_TIER_H = 56;
   const PLOT_H = 452; // hauteur fixe de la zone du graphique, indépendante du nombre de niveaux d'étiquettes
 
   const padLabelsBottom = bottomTierCount > 0 ? (BOTTOM_BASE + BOTTOM_TIER_H * (bottomTierCount - 1)) : 0;
