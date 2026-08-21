@@ -285,32 +285,99 @@ function buildElevationProfile(state) {
 }
 
 /**
+ * Répartit une série d'étiquettes (déjà triées par position x croissante) sur le plus petit nombre de
+ * "niveaux" empilés possible, sans jamais laisser deux étiquettes se chevaucher horizontalement au sein
+ * d'un même niveau : glouton classique — pour chaque étiquette, on la place dans le premier niveau déjà
+ * ouvert où elle tient (sans recouvrir la précédente de ce niveau), sinon on ouvre un nouveau niveau.
+ * Contrairement à une simple alternance haut/bas à 2 niveaux fixes, ceci s'adapte automatiquement au
+ * nombre de repères et à la densité du parcours (repères très rapprochés) sans jamais produire de texte
+ * chevauché — au prix, si besoin, d'un graphique un peu plus haut. Modifie `items` en place (`it.tier`).
+ */
+function packLabelTiers(items) {
+  const tierRightEdge = [];
+  items.forEach((it) => {
+    const left = it.x - it.halfWidth;
+    const right = it.x + it.halfWidth;
+    let tier = -1;
+    for (let t = 0; t < tierRightEdge.length; t++) {
+      if (left >= tierRightEdge[t]) { tier = t; break; }
+    }
+    if (tier === -1) { tier = tierRightEdge.length; tierRightEdge.push(right); }
+    else { tierRightEdge[tier] = right; }
+    it.tier = tier;
+  });
+  return tierRightEdge.length;
+}
+
+/**
  * Dessine le profil altimétrique + marqueurs de repères sur un canvas hors écran, et renvoie ce canvas
  * (converti ensuite en image PNG pour être inséré dans le PDF).
  */
 function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const W = 1700;
-  // Repères alternés au-dessus ET en-dessous du graphique (1 sur 2 en haut, 1 sur 2 en bas) pour
-  // limiter les recouvrements — la hauteur totale du canvas est donc plus grande dès qu'il y a des
-  // repères, pour réserver de la place aux étiquettes du bas en plus de celles du haut.
+  const pts = profile.points;
+  const padL = 80;
+  const padR = 30;
   const padAxisBottom = 60; // axe + graduations de distance (inchangé, jamais de repère ici)
-  const padLabelsBottom = landmarks.length ? 90 : 0; // étiquettes de repères "en bas", sous l'axe
-  const H = 620 + padLabelsBottom;
+  const plotW = W - padL - padR;
+  const maxDist = totalDistanceKm || pts[pts.length - 1].distKm || 1;
+  const xOf = (d) => padL + (d / maxDist) * plotW;
+
+  const FONT_BOLD = 'bold 21px -apple-system, sans-serif';
+  const FONT_REG = '18px -apple-system, sans-serif';
+  const LABEL_MARGIN = 16; // marge de sécurité entre deux étiquettes voisines d'un même niveau
+
+  // Mesure du texte AVANT de connaître la taille finale du canvas (measureText ne dépend que de la
+  // police, pas des dimensions du canvas) : un canvas de mesure jetable suffit.
+  const measureCtx = document.createElement('canvas').getContext('2d');
+  function textWidth(text, font) {
+    measureCtx.font = font;
+    return measureCtx.measureText(text).width;
+  }
+
+  // Départ et Arrivée sont un cas particulier : à l'extrémité gauche/droite du graphique, un texte
+  // centré déborderait du canvas et serait tronqué — ils restent alignés vers l'intérieur, sur leur
+  // propre rangée dédiée tout en haut, dans une couleur différente (rose), indépendamment des niveaux
+  // calculés ci-dessous pour les repères intermédiaires (répartis dynamiquement au-dessus ET en-dessous
+  // du graphique, sur autant de niveaux que nécessaire pour ne jamais se chevaucher).
+  const items = landmarks.map((lm) => {
+    const x = xOf(lm.distCumFin);
+    const isStart = lm.distCumFin <= maxDist * 0.02;
+    const isEnd = !isStart && lm.distCumFin >= maxDist * 0.98;
+    const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`;
+    const w = Math.max(textWidth(lm.label, FONT_BOLD), textWidth(kmLine, FONT_REG)) + LABEL_MARGIN;
+    return { lm, x, isStart, isEnd, isEdge: isStart || isEnd, kmLine, halfWidth: w / 2 };
+  });
+
+  const topItems = [];
+  const bottomItems = [];
+  let middleRank = 0;
+  items.filter((it) => !it.isEdge).forEach((it) => {
+    it.side = middleRank % 2 === 0 ? 'top' : 'bottom';
+    (it.side === 'top' ? topItems : bottomItems).push(it);
+    middleRank += 1;
+  });
+  const topTierCount = packLabelTiers(topItems);
+  const bottomTierCount = packLabelTiers(bottomItems);
+
+  const TOP_BASE = 64;
+  const TOP_TIER_H = 44;
+  const BOTTOM_BASE = 90;
+  const BOTTOM_TIER_H = 44;
+  const PLOT_H = 452; // hauteur fixe de la zone du graphique, indépendante du nombre de niveaux d'étiquettes
+
+  const padLabelsBottom = bottomTierCount > 0 ? (BOTTOM_BASE + BOTTOM_TIER_H * (bottomTierCount - 1)) : 0;
+  const padTop = landmarks.length ? (TOP_BASE + TOP_TIER_H * topTierCount) : 40;
+  const padBottom = padAxisBottom + padLabelsBottom;
+  const H = padTop + PLOT_H + padBottom;
+  const plotH = PLOT_H;
+
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
-
-  const pts = profile.points;
-  const padL = 80;
-  const padR = 30;
-  // +38 pour une rangée dédiée, tout en haut, au départ et à l'arrivée (cf. boucle des repères plus bas).
-  const padTop = landmarks.length ? 108 : 40;
-  const padBottom = padAxisBottom + padLabelsBottom;
-  const plotW = W - padL - padR;
-  const plotH = H - padTop - padBottom;
 
   const altitudes = pts.map((p) => p.alt);
   const minAlt = Math.min(...altitudes);
@@ -319,9 +386,7 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const altPad = altRange * 0.12;
   const yMin = minAlt - altPad;
   const yMax = maxAlt + altPad;
-  const maxDist = totalDistanceKm || pts[pts.length - 1].distKm || 1;
 
-  const xOf = (d) => padL + (d / maxDist) * plotW;
   const yOf = (a) => padTop + plotH - ((a - yMin) / (yMax - yMin)) * plotH;
 
   // Grille + axes
@@ -361,22 +426,13 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  // Repères : ligne verticale pointillée + point + étiquette. Départ et Arrivée sont un cas
-  // particulier : à l'extrémité gauche/droite du graphique, un texte centré déborderait du canvas et
-  // serait tronqué — ils sont donc alignés vers l'intérieur (gauche pour le départ, droite pour
-  // l'arrivée), placés sur une rangée dédiée tout en haut (au-dessus des autres étiquettes) et dans
-  // une couleur différente (rose de la marque) pour bien les distinguer des repères intermédiaires.
-  // Les repères intermédiaires alternent 1 sur 2 au-dessus / 1 sur 2 en-dessous du graphique pour
-  // répartir les étiquettes et limiter les recouvrements.
+  // Repères : ligne verticale pointillée + point + étiquette. Départ et Arrivée restent sur leur
+  // rangée dédiée tout en haut, en rose, alignés vers l'intérieur (cf. `items` ci-dessus). Les repères
+  // intermédiaires sont répartis au-dessus/en-dessous du graphique sur autant de niveaux que
+  // `packLabelTiers()` en a jugé nécessaire pour qu'aucune étiquette ne chevauche sa voisine.
   const plotBottomY = H - padBottom; // haut de l'axe des distances (bas réel de la zone du graphique)
-  let middleRank = 0;
-  landmarks.forEach((lm) => {
-    const x = xOf(lm.distCumFin);
-    // "Bord" = repère situé tout près du départ ou de l'arrivée réelle du parcours (pas juste le
-    // premier/dernier repère nommé) : un texte centré y déborderait du canvas et serait tronqué.
-    const isStart = lm.distCumFin <= maxDist * 0.02;
-    const isEnd = !isStart && lm.distCumFin >= maxDist * 0.98;
-    const isEdge = isStart || isEnd;
+  items.forEach((it) => {
+    const { lm, x, isEdge, isStart, kmLine } = it;
 
     let nearest = pts[0];
     let bestDiff = Infinity;
@@ -397,39 +453,34 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
     ctx.beginPath(); ctx.arc(x, dotY, 7, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
 
-    const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`;
-
     if (isEdge) {
       ctx.textAlign = isStart ? 'left' : 'right';
       const textX = isStart ? Math.max(x, padL) : Math.min(x, W - padR);
       const nameY = 26;
-      ctx.font = 'bold 21px -apple-system, sans-serif';
+      ctx.font = FONT_BOLD;
       ctx.fillStyle = '#ff216a';
       ctx.fillText(lm.label, textX, nameY);
-      ctx.font = '18px -apple-system, sans-serif';
+      ctx.font = FONT_REG;
       ctx.fillStyle = '#444441';
       ctx.fillText(kmLine, textX, nameY + 24);
-    } else {
-      const onTop = middleRank % 2 === 0;
-      middleRank += 1;
+    } else if (it.side === 'top') {
+      const kmLineY = padTop - 14 - it.tier * TOP_TIER_H;
       ctx.textAlign = 'center';
-      if (onTop) {
-        const labelBaseY = padTop - 14;
-        ctx.font = 'bold 21px -apple-system, sans-serif';
-        ctx.fillStyle = '#0505c5';
-        ctx.fillText(lm.label, x, labelBaseY - 20);
-        ctx.font = '18px -apple-system, sans-serif';
-        ctx.fillStyle = '#444441';
-        ctx.fillText(kmLine, x, labelBaseY);
-      } else {
-        const labelBaseY = plotBottomY + padAxisBottom + 26; // sous la ligne des graduations de distance
-        ctx.font = 'bold 21px -apple-system, sans-serif';
-        ctx.fillStyle = '#0505c5';
-        ctx.fillText(lm.label, x, labelBaseY);
-        ctx.font = '18px -apple-system, sans-serif';
-        ctx.fillStyle = '#444441';
-        ctx.fillText(kmLine, x, labelBaseY + 24);
-      }
+      ctx.font = FONT_BOLD;
+      ctx.fillStyle = '#0505c5';
+      ctx.fillText(lm.label, x, kmLineY - 20);
+      ctx.font = FONT_REG;
+      ctx.fillStyle = '#444441';
+      ctx.fillText(kmLine, x, kmLineY);
+    } else {
+      const kmLineY = plotBottomY + padAxisBottom + 26 + it.tier * BOTTOM_TIER_H;
+      ctx.textAlign = 'center';
+      ctx.font = FONT_BOLD;
+      ctx.fillStyle = '#0505c5';
+      ctx.fillText(lm.label, x, kmLineY);
+      ctx.font = FONT_REG;
+      ctx.fillStyle = '#444441';
+      ctx.fillText(kmLine, x, kmLineY + 24);
     }
   });
 
@@ -623,6 +674,6 @@ async function generatePacingPDF(state) {
 
 if (typeof module !== 'undefined') {
   module.exports = {
-    slugify, fmtPdfInt, formatHMPdf, computeArrivalClock, getLandmarkRows, buildElevationProfile, drawElevationChartCanvas, generatePacingPDF,
+    slugify, fmtPdfInt, formatHMPdf, computeArrivalClock, getLandmarkRows, buildElevationProfile, packLabelTiers, drawElevationChartCanvas, generatePacingPDF,
   };
 }
