@@ -219,8 +219,10 @@ function minettiTimeMultiplier(gradePercent) {
  * Un facteur de 1 signifie "conforme à la prédiction Minetti universelle". Un facteur < 1
  * signifie que l'athlète est plus rapide que prédit dans cette déclivité (meilleure économie
  * relative) ; > 1 qu'il est plus lent (moins bonne économie relative, ou prudence en descente).
- * Les facteurs sont bornés à [0.7, 1.3] pour éviter les dérives extrêmes en cas de reconnaissance
- * courte ou peu représentative.
+ * Les facteurs sont bornés à [0.85, 1.15] (± 15 %, du même ordre de grandeur que l'ancien système
+ * à tables fixes) pour rester un ajustement fin et éviter les dérives en cas de reconnaissance
+ * courte ou peu représentative — la difficulté de la pente elle-même est déjà intégralement
+ * présente dans la durée mesurée sur le terrain (dureeGPS), ce facteur ne fait que la nuancer.
  */
 function computePersonalCalibration(segments, vitessePlatRef) {
   if (!vitessePlatRef || vitessePlatRef <= 0) {
@@ -254,7 +256,7 @@ function computePersonalCalibration(segments, vitessePlatRef) {
     return sum(ech.map((e) => e.ratioVitesse * e.poids)) / totalPoids;
   }
 
-  const clamp = (f) => Math.max(0.7, Math.min(1.3, f));
+  const clamp = (f) => Math.max(0.85, Math.min(1.15, f));
   // Le facteur appliqué au TEMPS est l'inverse du ratio de VITESSE (plus rapide que prédit
   // => coefficient de temps plus petit).
   const rMontee = weightedAvgRatio(echMontee);
@@ -391,16 +393,19 @@ function computePacing(segments, settings, profils, distanceTotaleKm, categorieC
     const totalSegV1 = tempsV1 !== null ? tempsV1 + pause : null;
     cumV1 = totalSegV1 !== null ? cumV1 + totalSegV1 : cumV1;
 
-    // Coefficient de profil = courbe physiologique de Minetti (continue, fonction de la pente
-    // moyenne réelle du segment) × calibration personnelle montée/descente de l'athlète (voir
-    // computePersonalCalibration). Le plat n'a pas de facteur de calibration dédié : sa pente
-    // moyenne réelle (proche de 0 mais rarement exactement nulle) est déjà prise en compte par
-    // Minetti seul, puisque la vitesse plat de l'athlète sert justement de référence (mult = 1).
-    const coefMinetti = excelRound(minettiTimeMultiplier(seg.penteMoy), 3);
-    let coefCalibPerso = 1;
-    if (seg.type === 'montee') coefCalibPerso = profils.calibMontee ?? 1;
-    else if (seg.type === 'descente') coefCalibPerso = profils.calibDescente ?? 1;
-    const coefProfil = excelRound(coefMinetti * coefCalibPerso, 3);
+    // Coefficient de profil = calibration personnelle montée/descente de l'athlète (voir
+    // computePersonalCalibration), un correctif MODESTE et borné (±15 %) appliqué au temps V1.
+    // Important : dureeGPS vient de la reconnaissance GPS RÉELLE de l'athlète sur ce segment
+    // précis — la difficulté de la pente y est donc déjà intégralement présente (un segment
+    // raide a mécaniquement une dureeGPS mesurée plus longue). Le rôle de ce coefficient n'est
+    // pas de re-modéliser l'effet de la pente depuis zéro (la courbe de Minetti sert uniquement,
+    // en amont, à calculer CE facteur de calibration dans computePersonalCalibration, pas à
+    // multiplier une seconde fois le temps mesuré) : c'est un ajustement fin qui reflète une
+    // tendance personnelle constatée (ex. descend un peu plus prudemment que ce que sa vitesse
+    // plat laisserait supposer), du même ordre de grandeur que l'ancien système à tables fixes.
+    let coefProfil = 1;
+    if (seg.type === 'montee') coefProfil = profils.calibMontee ?? 1;
+    else if (seg.type === 'descente') coefProfil = profils.calibDescente ?? 1;
 
     const tempsV2 = tempsV1 !== null ? excelRound(tempsV1 * coefProfil, 1) : null;
     const totalSegV2 = tempsV2 !== null ? tempsV2 + pause : null;
@@ -427,8 +432,6 @@ function computePacing(segments, settings, profils, distanceTotaleKm, categorieC
       totalSegV1,
       cumulV1: totalSegV1 !== null ? cumV1 : null,
       cumulV1HM: formatHM(cumV1),
-      coefMinetti,
-      coefCalibPerso,
       coefProfil,
       tempsV2,
       totalSegV2,

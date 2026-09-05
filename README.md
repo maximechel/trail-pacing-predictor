@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=32`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=33`, `?v=34`…) dans `index.html`
+> `?v=33`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=34`, `?v=35`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -301,57 +301,63 @@ trail-pacing-predictor/
 ## 🔬 Modèle physiologique Minetti + calibration personnelle
 
 Depuis la v32, le **coefficient de profil** (celui qui transforme le temps V1 "brut GPS" en temps V2
-ajusté à l'effort réel de montée/descente) n'est plus lu dans une table fixe de coefficients par
-catégorie (Grimpeur/Équilibré/Rouleur, Bon/Moyen/Faible descendeur). Il est calculé automatiquement
-en deux étapes, pour **chaque segment**, à partir de sa pente moyenne réelle (`penteMoy`) :
+ajusté au profil montée/descente de l'athlète) n'est plus lu dans une table fixe de coefficients par
+catégorie (Grimpeur/Équilibré/Rouleur, Bon/Moyen/Faible descendeur). Il est calculé automatiquement,
+à partir des données de la reconnaissance GPS déjà importée, en deux temps :
 
 1. **Courbe de coût métabolique de Minetti et al. (2002)** — *"Energy cost of walking and running at
    extreme uphill and downhill slopes"*, Journal of Applied Physiology, 93(3):1039-1046. Ce polynôme
    de degré 5, ajusté sur des mesures de consommation d'oxygène en laboratoire de -45 % à +45 % de
-   pente, donne le coût énergétique de la course (en J/kg/m) en fonction de la pente. Sous
-   l'hypothèse d'une puissance métabolique constante, le rapport entre ce coût et le coût sur le plat
-   donne un **multiplicateur de temps continu** : plus fidèle qu'un simple classement en 3 catégories
-   montée/plat/descente, car il varie en continu avec la pente réelle de chaque segment (une pente à
-   +8 % et une pente à +25 % étaient auparavant traitées de façon identique — ce n'est plus le cas).
-   Il prédit notamment qu'une descente modérée (environ -10 à -20 %) est *moins* coûteuse que le
-   plat, et qu'au-delà d'une descente très raide (au-delà de -35/-40 %) le coût remonte
-   (freinage musculaire excentrique) — un phénomène bien documenté dans la littérature sur la course
-   en descente, qu'une table de coefficients fixes ne pouvait pas représenter.
+   pente, donne le coût énergétique de la course (en J/kg/m) en fonction de la pente, et prédit
+   notamment qu'une descente modérée (environ -10 à -20 %) est *moins* coûteuse que le plat, et
+   qu'au-delà d'une descente très raide (au-delà de -35/-40 %) le coût remonte (freinage musculaire
+   excentrique). Cette courbe sert de **référence universelle** (moyenne de population) : pour
+   chaque segment de la reconnaissance, elle permet de calculer la vitesse qu'un coureur "moyen"
+   aurait sur cette pente, à partir de la vitesse moyenne sur le plat de l'athlète (voir point 2).
 
-2. **Calibration personnelle automatique** — la courbe de Minetti est universelle (moyenne de
-   population), mais chaque athlète s'en écarte dans un sens ou dans l'autre selon son économie de
-   course, sa technique de descente, son expérience du terrain, etc. L'application compare donc, pour
-   chaque segment de la reconnaissance GPS déjà importée, la vitesse **réellement mesurée** à la
-   vitesse que prédirait la courbe de Minetti à partir de la vitesse moyenne sur le plat de
-   l'athlète. La moyenne pondérée (par distance) de cet écart, séparément en montée et en descente,
-   donne deux facteurs de calibration personnels (`calibMontee`, `calibDescente`, bornés à
-   [0.7, 1.3] pour éviter les dérives sur une reconnaissance courte). Un facteur de 1 signifie
-   "conforme à la prédiction Minetti universelle" ; < 1 signifie que l'athlète est plus rapide que
-   prédit dans cette déclivité, > 1 qu'il est plus lent. Ces facteurs remplacent la classification
-   manuelle Grimpeur/Rouleur/Équilibré et Bon/Moyen/Faible descendeur — visibles à titre
-   **descriptif uniquement** dans l'onglet Profil GPS — et sont recalculés automatiquement à chaque
-   nouvelle reconnaissance importée.
+2. **Calibration personnelle automatique** — chaque athlète s'écarte de cette courbe universelle
+   dans un sens ou dans l'autre, selon son économie de course, sa technique de descente, son
+   expérience du terrain, etc. L'application compare, pour chaque segment de la reconnaissance, la
+   vitesse **réellement mesurée** à la vitesse que prédirait la courbe de Minetti. La moyenne
+   pondérée (par distance) de cet écart, séparément en montée et en descente, donne deux facteurs de
+   calibration personnels (`calibMontee`, `calibDescente`). Un facteur de 1 signifie "conforme à la
+   prédiction Minetti universelle" ; < 1 signifie que l'athlète est plus rapide que prédit dans cette
+   déclivité, > 1 qu'il est plus lent. Ces facteurs remplacent la classification manuelle
+   Grimpeur/Rouleur/Équilibré et Bon/Moyen/Faible descendeur — visibles à titre **descriptif
+   uniquement** dans l'onglet Profil GPS — et sont recalculés automatiquement à chaque nouvelle
+   reconnaissance importée.
 
-Le coefficient de profil final appliqué à un segment est donc `coefMinetti(penteMoy) × coefCalibPerso`
-(montée ou descente selon le type de segment ; le plat n'a pas de facteur de calibration dédié,
-Minetti seul suffisant puisque la vitesse plat de l'athlète sert de référence). Ces deux valeurs sont
-visibles séparément dans les colonnes avancées de l'onglet Pacing (`Coef Minetti`, `Coef Calib. perso`).
+**Point important, pour éviter un piège** : le temps V1 (`dureeGPS`) d'un segment vient de la
+reconnaissance GPS **réelle** de l'athlète sur ce segment précis — la difficulté de la pente y est
+donc déjà **entièrement présente** (un segment raide a mécaniquement une durée mesurée plus longue).
+Le coefficient de profil appliqué en V2 n'est donc **pas** un second facteur physiologique qui
+re-multiplierait cette durée déjà réelle par la courbe de Minetti (ça reviendrait à compter deux fois
+la difficulté de la pente, et à obtenir des temps totaux aberrants sur les segments les plus raides —
+c'est exactement le bug d'une version intermédiaire, corrigé avant la mise en ligne). C'est
+uniquement `calibMontee` / `calibDescente` — un ajustement **fin et borné** (± 15 %, du même ordre de
+grandeur que l'ancien système à tables fixes) — qui est appliqué au temps V1 ; la courbe de Minetti
+sert seulement, en amont, de référence pour calculer *ce* facteur de calibration à partir des
+données de la reconnaissance, elle n'intervient jamais une seconde fois dans le calcul du temps
+lui-même. Le plat n'a pas de facteur de calibration dédié (coefficient = 1).
 
 **Écart assumé au principe de fidélité au classeur Excel** (voir section suivante) : le classeur
 Excel d'origine utilisait 4 tables de coefficients fixes, éditables manuellement mais sans ancrage
 dans une source publiée. Ce changement — validé avec vous — remplace cette partie spécifique par un
-modèle appuyé sur une publication scientifique à comité de lecture (Minetti et al., 2002) plus une
-calibration objective sur données GPS réelles, plutôt que sur une estimation manuelle du profil de
-l'athlète. Toutes les autres briques du moteur (fatigue, intensité, technicité, conditions,
-segmentation GPS) restent inchangées et fidèles au classeur d'origine.
+facteur de calibration personnel, objectif et dérivé des données GPS réelles de l'athlète, dont le
+calcul s'appuie sur une publication scientifique à comité de lecture (Minetti et al., 2002) plutôt
+que sur une estimation manuelle du profil de l'athlète. Toutes les autres briques du moteur
+(fatigue, intensité, technicité, conditions, segmentation GPS) restent inchangées et fidèles au
+classeur d'origine.
 
-Validation : les fonctions `minettiCostOfTransport`, `minettiTimeMultiplier` et
-`computePersonalCalibration` (`js/engine.js`) ont été testées via un script Node dédié, qui vérifie
-numériquement que le coût sur le plat correspond à la littérature (≈ 3.6 J/kg/m), que le
+Validation : les fonctions `minettiCostOfTransport`, `minettiTimeMultiplier`, `computePersonalCalibration`,
+`computeProfils` et `computePacing` (`js/engine.js`) ont été testées via un script Node dédié, qui
+vérifie numériquement que le coût sur le plat correspond à la littérature (≈ 3.6 J/kg/m), que le
 multiplicateur croît bien avec la pente en montée, qu'une descente modérée est moins coûteuse que
-le plat puis remonte sur les pentes très raides, que le bornage à ±45 % fonctionne, et que la
+le plat puis remonte sur les pentes très raides, que le bornage à ±45 % fonctionne, que la
 calibration personnelle se comporte correctement sur des athlètes synthétiques (conforme à Minetti,
-grimpeur fort, descendeur prudent, absence de données).
+grimpeur fort, descendeur prudent, absence de données), et — test de non-régression explicite —
+qu'un segment très raide (40 %) ne produit jamais un temps V2 qui s'écarte de plus de ±15 % du
+temps V1, ce qui garantit l'absence de double comptage de la difficulté de la pente.
 
 ## ✅ Fidélité au classeur Excel
 

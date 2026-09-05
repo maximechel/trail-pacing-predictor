@@ -199,9 +199,7 @@ const PACING_COLUMNS = [
   { key: 'totalSegV1', label: 'Total seg (min) V1', adv: true, digits: 1 },
   { key: 'cumulV1', label: 'Cumul (min) V1', adv: true, digits: 1 },
   { key: 'cumulV1HM', label: 'Cumul V1 (h min)', adv: true, align: 'left' },
-  { key: 'coefMinetti', label: 'Coef Minetti', adv: true, digits: 3 },
-  { key: 'coefCalibPerso', label: 'Coef Calib. perso', adv: true, digits: 3 },
-  { key: 'coefProfil', label: 'Coef Profil', adv: true, digits: 2 },
+  { key: 'coefProfil', label: 'Coef Profil (calib. perso)', adv: true, digits: 3 },
   { key: 'tempsV2', label: 'Temps prévu (min) V2', adv: false, digits: 1 },
   { key: 'totalSegV2', label: 'Total seg (min) V2', adv: true, digits: 1 },
   { key: 'cumulV2', label: 'Cumul (min) V2', adv: true, digits: 1 },
@@ -311,7 +309,7 @@ function renderPacingTable(pacing, settings, showAdvanced, rowMeta = {}) {
     penteMoy: '', dureeGPS: fmt(t.dureeGPS, 1), intensite: '', coefIntensite: '', technicite: '', coefTech: '',
     conditions: '', coefCond: '', coefTerrain: '', distCumDebut: '', pctParcoursPct: '', coefFatigue: '',
     tempsV1: fmt(t.tempsV1, 1), pause: fmt(t.pause, 1), totalSegV1: fmt(t.totalSegV1, 1),
-    cumulV1: fmt(t.cumulV1, 1), cumulV1HM: t.cumulV1HM, coefMinetti: '', coefCalibPerso: '', coefProfil: '',
+    cumulV1: fmt(t.cumulV1, 1), cumulV1HM: t.cumulV1HM, coefProfil: '',
     tempsV2: fmt(t.tempsV2, 1), totalSegV2: fmt(t.totalSegV2, 1), cumulV2: fmt(t.cumulV2, 1), cumulV2HM: t.cumulV2HM,
   };
   const footRow = el('tr');
