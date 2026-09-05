@@ -119,7 +119,7 @@ function recomputeAll() {
 
   state.pacing = state.segments.length
     ? computePacing(
-        state.segments, state.settings, state.profils || { coefMontee: 1, coefPlat: 1, coefMixte: 1, coefDescente: 1 },
+        state.segments, state.settings, state.profils || { calibMontee: 1, calibDescente: 1 },
         state.auto.distanceTotaleKm, state.categorie, state.globalDefaults, state.rowOverrides,
       )
     : null;
@@ -137,7 +137,7 @@ function recomputeAll() {
 function recomputePacingOnly() {
   state.pacing = state.segments.length
     ? computePacing(
-        state.segments, state.settings, state.profils || { coefMontee: 1, coefPlat: 1, coefMixte: 1, coefDescente: 1 },
+        state.segments, state.settings, state.profils || { calibMontee: 1, calibDescente: 1 },
         state.auto.distanceTotaleKm, state.categorie, state.globalDefaults, state.rowOverrides,
       )
     : null;

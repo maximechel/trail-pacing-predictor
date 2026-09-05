@@ -171,7 +171,104 @@ function buildSegments(rowsWithGroups) {
   return segments;
 }
 
-// ---------- 4. PROFILS ----------
+// ---------- 4. MODÈLE MINETTI — coût métabolique de la course selon la pente ----------
+//
+// Référence : Minetti A.E., Moia C., Roi G.S., Susta D., Ferretti G. (2002), "Energy cost of
+// walking and running at extreme uphill and downhill slopes", J Appl Physiol 93(3):1039-1046.
+// Polynôme de degré 5 ajusté sur des mesures de VO2 en laboratoire, valable de -45 % à +45 % de
+// pente. C_r(0) ≈ 3.6 J/kg/m, cohérent avec la littérature sur le coût de la course sur le plat
+// (≈ 3.4-3.6 J/kg/m). Remplace, pour la partie "coefficient de profil" (montée/plat/descente),
+// les tables de coefficients fixes issues du classeur Excel d'origine : voir README pour la
+// justification de cet écart assumé au principe de fidélité au classeur.
+
+const MINETTI_GRADE_MIN = -0.45;
+const MINETTI_GRADE_MAX = 0.45;
+
+/**
+ * Coût métabolique de la course en fonction de la pente (Minetti et al., 2002). `gradeFraction`
+ * est la pente en fraction décimale (0.10 = +10 %), bornée à [-0.45, +0.45]. Résultat en J/kg/m.
+ */
+function minettiCostOfTransport(gradeFraction) {
+  const i = Math.max(MINETTI_GRADE_MIN, Math.min(MINETTI_GRADE_MAX, gradeFraction || 0));
+  return 155.4 * Math.pow(i, 5) - 30.4 * Math.pow(i, 4) - 43.3 * Math.pow(i, 3)
+    + 46.3 * Math.pow(i, 2) + 19.5 * i + 3.6;
+}
+
+/**
+ * Multiplicateur de temps par rapport au plat, à puissance métabolique constante :
+ * mult(i) = C_r(i) / C_r(0). `gradePercent` est la pente en pourcentage (ex. seg.penteMoy).
+ * mult(0) = 1 exactement ; mult < 1 sur les pentes légèrement négatives (course en descente
+ * modérée moins coûteuse que le plat) ; mult > 1 en montée et sur les descentes très raides.
+ */
+function minettiTimeMultiplier(gradePercent) {
+  const i = (gradePercent || 0) / 100;
+  const c0 = minettiCostOfTransport(0);
+  const ci = minettiCostOfTransport(i);
+  return ci / c0;
+}
+
+/**
+ * Calibration personnelle automatique : compare, pour chaque segment de reconnaissance GPS déjà
+ * importé, la vitesse réellement mesurée (seg.vitesseMoy) à la vitesse prédite par la courbe de
+ * Minetti à partir de la vitesse moyenne sur le plat de l'athlète (référence à pente nulle).
+ * Produit deux facteurs multiplicatifs — un pour la montée, un pour la descente — qui corrigent
+ * la courbe universelle de Minetti pour refléter l'économie de course propre à l'athlète
+ * (grimpeur naturel, descendeur prudent, etc.), remplaçant la classification manuelle
+ * Grimpeur/Rouleur/Équilibré + Bon/Moyen/Faible descendeur.
+ *
+ * Un facteur de 1 signifie "conforme à la prédiction Minetti universelle". Un facteur < 1
+ * signifie que l'athlète est plus rapide que prédit dans cette déclivité (meilleure économie
+ * relative) ; > 1 qu'il est plus lent (moins bonne économie relative, ou prudence en descente).
+ * Les facteurs sont bornés à [0.7, 1.3] pour éviter les dérives extrêmes en cas de reconnaissance
+ * courte ou peu représentative.
+ */
+function computePersonalCalibration(segments, vitessePlatRef) {
+  if (!vitessePlatRef || vitessePlatRef <= 0) {
+    return { calibMontee: 1, calibDescente: 1, nbEchMontee: 0, nbEchDescente: 0 };
+  }
+
+  const echMontee = [];
+  const echDescente = [];
+
+  segments.forEach((seg) => {
+    if (seg.vitesseMoy === null || seg.vitesseMoy === undefined) return;
+    if (seg.penteMoy === null || seg.penteMoy === undefined) return;
+    if (!seg.distanceKm || seg.distanceKm <= 0) return;
+
+    const mult = minettiTimeMultiplier(seg.penteMoy);
+    if (!mult || mult <= 0) return;
+
+    const vitessePredite = vitessePlatRef / mult;
+    if (vitessePredite <= 0) return;
+
+    const ratioVitesse = seg.vitesseMoy / vitessePredite; // > 1 : plus rapide que la prédiction
+    const poids = seg.distanceKm; // pondération par distance parcourue dans cette déclivité
+
+    if (seg.type === 'montee') echMontee.push({ ratioVitesse, poids });
+    else if (seg.type === 'descente') echDescente.push({ ratioVitesse, poids });
+  });
+
+  function weightedAvgRatio(ech) {
+    const totalPoids = sum(ech.map((e) => e.poids));
+    if (totalPoids <= 0) return null;
+    return sum(ech.map((e) => e.ratioVitesse * e.poids)) / totalPoids;
+  }
+
+  const clamp = (f) => Math.max(0.7, Math.min(1.3, f));
+  // Le facteur appliqué au TEMPS est l'inverse du ratio de VITESSE (plus rapide que prédit
+  // => coefficient de temps plus petit).
+  const rMontee = weightedAvgRatio(echMontee);
+  const rDescente = weightedAvgRatio(echDescente);
+
+  return {
+    calibMontee: rMontee ? excelRound(clamp(1 / rMontee), 3) : 1,
+    calibDescente: rDescente ? excelRound(clamp(1 / rDescente), 3) : 1,
+    nbEchMontee: echMontee.length,
+    nbEchDescente: echDescente.length,
+  };
+}
+
+// ---------- 5. PROFILS ----------
 
 function avgIfType(segments, type, field) {
   const vals = segments.filter((s) => s.type === type).map((s) => s[field]);
@@ -192,6 +289,9 @@ function computeProfils(segments, settings) {
   const indiceDescente = (vDescenteR !== null && vPlatR !== null && vPlatR !== 0)
     ? excelRound(vDescenteR / vPlatR, 2) : null;
 
+  // Étiquettes purement descriptives (affichage) — ne servent plus à chercher un coefficient
+  // dans une table fixe : le coefficient de profil est désormais calculé en continu à partir de
+  // la courbe de Minetti + calibration personnelle (voir computePersonalCalibration ci-dessus).
   let profilForceVitesse = 'Données insuffisantes';
   if (vMonteeR !== null && vPlatR !== null && vPlatR !== 0 && ratioMonteePlat !== null) {
     if (ratioMonteePlat > 0.55) profilForceVitesse = 'Grimpeur';
@@ -206,8 +306,7 @@ function computeProfils(segments, settings) {
     else profilDescenteLabel = 'Descendeur faible';
   }
 
-  const fvRow = settings.profilForceVitesse.find((p) => p.profil === profilForceVitesse);
-  const descRow = settings.profilDescente.find((p) => p.profil === profilDescenteLabel);
+  const calib = computePersonalCalibration(segments, vPlatR);
 
   const nbMontee = segments.filter((s) => s.type === 'montee').length;
   const nbPlat = segments.filter((s) => s.type === 'plat').length;
@@ -220,11 +319,11 @@ function computeProfils(segments, settings) {
     ratioMonteePlat,
     indiceDescente,
     profilForceVitesse,
-    coefMontee: fvRow ? fvRow.montee : 1,
-    coefPlat: fvRow ? fvRow.plat : 1,
-    coefMixte: fvRow ? fvRow.mixte : 1,
     profilDescente: profilDescenteLabel,
-    coefDescente: descRow ? descRow.coef : 1,
+    calibMontee: calib.calibMontee,
+    calibDescente: calib.calibDescente,
+    nbEchMontee: calib.nbEchMontee,
+    nbEchDescente: calib.nbEchDescente,
     profilComplet: (profilForceVitesse === 'Données insuffisantes' || profilDescenteLabel === 'Données insuffisantes')
       ? 'Compléter la reco — données insuffisantes'
       : `${profilForceVitesse} + ${profilDescenteLabel}`,
@@ -292,10 +391,16 @@ function computePacing(segments, settings, profils, distanceTotaleKm, categorieC
     const totalSegV1 = tempsV1 !== null ? tempsV1 + pause : null;
     cumV1 = totalSegV1 !== null ? cumV1 + totalSegV1 : cumV1;
 
-    let coefProfil = 1;
-    if (seg.type === 'montee') coefProfil = profils.coefMontee ?? 1;
-    else if (seg.type === 'plat') coefProfil = profils.coefPlat ?? 1;
-    else if (seg.type === 'descente') coefProfil = profils.coefDescente ?? 1;
+    // Coefficient de profil = courbe physiologique de Minetti (continue, fonction de la pente
+    // moyenne réelle du segment) × calibration personnelle montée/descente de l'athlète (voir
+    // computePersonalCalibration). Le plat n'a pas de facteur de calibration dédié : sa pente
+    // moyenne réelle (proche de 0 mais rarement exactement nulle) est déjà prise en compte par
+    // Minetti seul, puisque la vitesse plat de l'athlète sert justement de référence (mult = 1).
+    const coefMinetti = excelRound(minettiTimeMultiplier(seg.penteMoy), 3);
+    let coefCalibPerso = 1;
+    if (seg.type === 'montee') coefCalibPerso = profils.calibMontee ?? 1;
+    else if (seg.type === 'descente') coefCalibPerso = profils.calibDescente ?? 1;
+    const coefProfil = excelRound(coefMinetti * coefCalibPerso, 3);
 
     const tempsV2 = tempsV1 !== null ? excelRound(tempsV1 * coefProfil, 1) : null;
     const totalSegV2 = tempsV2 !== null ? tempsV2 + pause : null;
@@ -322,6 +427,8 @@ function computePacing(segments, settings, profils, distanceTotaleKm, categorieC
       totalSegV1,
       cumulV1: totalSegV1 !== null ? cumV1 : null,
       cumulV1HM: formatHM(cumV1),
+      coefMinetti,
+      coefCalibPerso,
       coefProfil,
       tempsV2,
       totalSegV2,
@@ -355,6 +462,7 @@ if (typeof module !== 'undefined') {
   module.exports = {
     excelRound, toNumber, average, sum, formatHM,
     parseImportCSV, assignSegmentGroups, buildSegments,
+    minettiCostOfTransport, minettiTimeMultiplier, computePersonalCalibration,
     computeProfils, computeCourseAutoFields, computePacing,
   };
 }

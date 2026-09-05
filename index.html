@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=31" />
+<link rel="stylesheet" href="css/style.css?v=32" />
 </head>
 <body>
 <header class="app-header">
@@ -254,13 +254,14 @@
       </details>
 
       <details>
-        <summary>🧬 Coefficients profil force-vitesse</summary>
-        <table class="coef-table" id="table-profil-fv"></table>
-      </details>
-
-      <details>
-        <summary>🏔 Coefficients profil descente</summary>
-        <table class="coef-table" id="table-profil-desc"></table>
+        <summary>🧬 Coefficient de profil (montée/plat/descente)</summary>
+        <p>
+          Depuis la v32, le coefficient de profil n'est plus une table fixe éditable : il est
+          calculé automatiquement pour chaque segment à partir de la pente moyenne réelle
+          (courbe physiologique de Minetti et al., 2002) combinée à une calibration personnelle
+          de l'athlète, dérivée de ses propres données GPS de reconnaissance. Voir le détail par
+          athlète dans l'onglet « Profils » et la méthodologie complète dans le README du projet.
+        </p>
       </details>
 
       <button id="reset-settings-btn" class="btn-secondary">↺ Réinitialiser aux valeurs par défaut</button>
@@ -288,11 +289,11 @@
   <!-- ================= TAB 4 : PROFILS ================= -->
   <section id="tab-profils" class="tab-panel">
     <div class="card">
-      <h2>🧬 Profil force-vitesse (montée + plat)</h2>
+      <h2>🧬 Profil force-vitesse (montée + plat) — calibration Minetti</h2>
       <div class="profil-grid" id="profil-fv-grid"></div>
     </div>
     <div class="card">
-      <h2>🏔 Profil descente</h2>
+      <h2>🏔 Profil descente — calibration Minetti</h2>
       <div class="profil-grid" id="profil-desc-grid"></div>
     </div>
     <div class="card">
@@ -383,14 +384,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=31"></script>
-<script src="js/engine.js?v=31"></script>
-<script src="js/fit-parser.js?v=31"></script>
-<script src="js/fit-to-csv.js?v=31"></script>
-<script src="js/gpx-parser.js?v=31"></script>
-<script src="js/athletes.js?v=31"></script>
-<script src="js/pdf-export.js?v=31"></script>
-<script src="js/ui.js?v=31"></script>
-<script src="js/main.js?v=31"></script>
+<script src="js/data.js?v=32"></script>
+<script src="js/engine.js?v=32"></script>
+<script src="js/fit-parser.js?v=32"></script>
+<script src="js/fit-to-csv.js?v=32"></script>
+<script src="js/gpx-parser.js?v=32"></script>
+<script src="js/athletes.js?v=32"></script>
+<script src="js/pdf-export.js?v=32"></script>
+<script src="js/ui.js?v=32"></script>
+<script src="js/main.js?v=32"></script>
 </body>
 </html>

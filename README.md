@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=31`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=32`, `?v=33`…) dans `index.html`
+> `?v=32`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=33`, `?v=34`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -67,9 +67,9 @@ L'application suit exactement le même pipeline que les onglets du classeur Exce
 | `IMPORT_CSV` | **3. Import CSV** | Collez ou chargez le CSV GPS traité (16 colonnes, séparateur `;`) |
 | `TRAITEMENT` | *(interne)* | Segmentation automatique par regroupement des points GPS consécutifs de même type (`segment_type_smooth`) |
 | `SEGMENTS` | **5. Segments** | Agrégation par segment : distance, D+/D-, durée, vitesse et pente moyennes |
-| `PROFILS` | **6. Profil GPS** | Classification automatique du profil force-vitesse (Grimpeur / Équilibré / Rouleur) et du profil descente, calculée depuis la reconnaissance GPS importée |
-| `PARAMÈTRES` | **4. Paramètres** | Infos course (distance/D+/D- calculées auto depuis le CSV), catégorie, apparence (logo), et toutes les tables de coefficients éditables |
-| `PACING` | **7. Pacing** | Temps prévisionnels par segment : V1 = sans profil athlète, V2 = ajusté au profil (grimpeur/rouleur + descente) |
+| `PROFILS` | **6. Profil GPS** | Profil force-vitesse et profil descente **descriptifs** (Grimpeur / Équilibré / Rouleur, Bon / Moyen / Faible descendeur), plus la **calibration personnelle Minetti** (facteurs montée/descente) réellement utilisée dans le calcul, calculée depuis la reconnaissance GPS importée — voir [Modèle Minetti](#-modèle-physiologique-minetti--calibration-personnelle) |
+| `PARAMÈTRES` | **4. Paramètres** | Infos course (distance/D+/D- calculées auto depuis le CSV), catégorie, apparence (logo), et les tables de coefficients éditables (fatigue, intensité, technicité, conditions) |
+| `PACING` | **7. Pacing** | Temps prévisionnels par segment : V1 = sans profil athlète, V2 = ajusté à la pente réelle du segment (courbe de Minetti) et à la calibration personnelle de l'athlète |
 
 ### Profils athlètes (nouveau)
 
@@ -298,11 +298,69 @@ trail-pacing-predictor/
 └── .github/workflows/deploy.yml  Déploiement automatique sur GitHub Pages
 ```
 
+## 🔬 Modèle physiologique Minetti + calibration personnelle
+
+Depuis la v32, le **coefficient de profil** (celui qui transforme le temps V1 "brut GPS" en temps V2
+ajusté à l'effort réel de montée/descente) n'est plus lu dans une table fixe de coefficients par
+catégorie (Grimpeur/Équilibré/Rouleur, Bon/Moyen/Faible descendeur). Il est calculé automatiquement
+en deux étapes, pour **chaque segment**, à partir de sa pente moyenne réelle (`penteMoy`) :
+
+1. **Courbe de coût métabolique de Minetti et al. (2002)** — *"Energy cost of walking and running at
+   extreme uphill and downhill slopes"*, Journal of Applied Physiology, 93(3):1039-1046. Ce polynôme
+   de degré 5, ajusté sur des mesures de consommation d'oxygène en laboratoire de -45 % à +45 % de
+   pente, donne le coût énergétique de la course (en J/kg/m) en fonction de la pente. Sous
+   l'hypothèse d'une puissance métabolique constante, le rapport entre ce coût et le coût sur le plat
+   donne un **multiplicateur de temps continu** : plus fidèle qu'un simple classement en 3 catégories
+   montée/plat/descente, car il varie en continu avec la pente réelle de chaque segment (une pente à
+   +8 % et une pente à +25 % étaient auparavant traitées de façon identique — ce n'est plus le cas).
+   Il prédit notamment qu'une descente modérée (environ -10 à -20 %) est *moins* coûteuse que le
+   plat, et qu'au-delà d'une descente très raide (au-delà de -35/-40 %) le coût remonte
+   (freinage musculaire excentrique) — un phénomène bien documenté dans la littérature sur la course
+   en descente, qu'une table de coefficients fixes ne pouvait pas représenter.
+
+2. **Calibration personnelle automatique** — la courbe de Minetti est universelle (moyenne de
+   population), mais chaque athlète s'en écarte dans un sens ou dans l'autre selon son économie de
+   course, sa technique de descente, son expérience du terrain, etc. L'application compare donc, pour
+   chaque segment de la reconnaissance GPS déjà importée, la vitesse **réellement mesurée** à la
+   vitesse que prédirait la courbe de Minetti à partir de la vitesse moyenne sur le plat de
+   l'athlète. La moyenne pondérée (par distance) de cet écart, séparément en montée et en descente,
+   donne deux facteurs de calibration personnels (`calibMontee`, `calibDescente`, bornés à
+   [0.7, 1.3] pour éviter les dérives sur une reconnaissance courte). Un facteur de 1 signifie
+   "conforme à la prédiction Minetti universelle" ; < 1 signifie que l'athlète est plus rapide que
+   prédit dans cette déclivité, > 1 qu'il est plus lent. Ces facteurs remplacent la classification
+   manuelle Grimpeur/Rouleur/Équilibré et Bon/Moyen/Faible descendeur — visibles à titre
+   **descriptif uniquement** dans l'onglet Profil GPS — et sont recalculés automatiquement à chaque
+   nouvelle reconnaissance importée.
+
+Le coefficient de profil final appliqué à un segment est donc `coefMinetti(penteMoy) × coefCalibPerso`
+(montée ou descente selon le type de segment ; le plat n'a pas de facteur de calibration dédié,
+Minetti seul suffisant puisque la vitesse plat de l'athlète sert de référence). Ces deux valeurs sont
+visibles séparément dans les colonnes avancées de l'onglet Pacing (`Coef Minetti`, `Coef Calib. perso`).
+
+**Écart assumé au principe de fidélité au classeur Excel** (voir section suivante) : le classeur
+Excel d'origine utilisait 4 tables de coefficients fixes, éditables manuellement mais sans ancrage
+dans une source publiée. Ce changement — validé avec vous — remplace cette partie spécifique par un
+modèle appuyé sur une publication scientifique à comité de lecture (Minetti et al., 2002) plus une
+calibration objective sur données GPS réelles, plutôt que sur une estimation manuelle du profil de
+l'athlète. Toutes les autres briques du moteur (fatigue, intensité, technicité, conditions,
+segmentation GPS) restent inchangées et fidèles au classeur d'origine.
+
+Validation : les fonctions `minettiCostOfTransport`, `minettiTimeMultiplier` et
+`computePersonalCalibration` (`js/engine.js`) ont été testées via un script Node dédié, qui vérifie
+numériquement que le coût sur le plat correspond à la littérature (≈ 3.6 J/kg/m), que le
+multiplicateur croît bien avec la pente en montée, qu'une descente modérée est moins coûteuse que
+le plat puis remonte sur les pentes très raides, que le bornage à ±45 % fonctionne, et que la
+calibration personnelle se comporte correctement sur des athlètes synthétiques (conforme à Minetti,
+grimpeur fort, descendeur prudent, absence de données).
+
 ## ✅ Fidélité au classeur Excel
 
 Le moteur de calcul (`js/engine.js`) a été validé numériquement contre les valeurs réellement calculées par le
 classeur Excel d'origine (segments, profils athlète, temps V1/V2 et totaux de course) : correspondance exacte
-sur l'ensemble des colonnes testées. La reconstruction des colonnes GPS à partir de points bruts
+sur l'ensemble des colonnes testées, **à l'exception du coefficient de profil montée/plat/descente**, qui
+suit désormais le modèle décrit ci-dessus (Minetti + calibration personnelle) plutôt que les tables fixes de
+l'Excel d'origine — voir [🔬 Modèle physiologique Minetti + calibration personnelle](#-modèle-physiologique-minetti--calibration-personnelle)
+pour la justification. La reconstruction des colonnes GPS à partir de points bruts
 (`js/fit-to-csv.js`) a elle aussi été validée en reproduisant, à partir de coordonnées lat/lon/altitude/temps
 réelles, les colonnes déjà calculées d'une reconnaissance GPS de référence (correspondance exacte, y compris
 sur la classification plat/montée/descente). Le lecteur `.fit` (`js/fit-parser.js`) a été testé sur des

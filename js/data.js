@@ -49,19 +49,12 @@ const DEFAULT_SETTINGS = {
     { label: 'Neige tassée', coef: 1.18, description: 'Neige dure ou partiellement fondue' },
   ],
 
-  // Coefficients profil force-vitesse (montée/plat/mixte). Seuils de classification : voir engine.js
-  profilForceVitesse: [
-    { profil: 'Grimpeur', montee: 0.93, plat: 1.05, mixte: 0.97 },
-    { profil: 'Équilibré', montee: 1.00, plat: 1.00, mixte: 1.00 },
-    { profil: 'Rouleur', montee: 1.08, plat: 0.95, mixte: 1.03 },
-  ],
-
-  // Coefficients profil descente.
-  profilDescente: [
-    { profil: 'Bon descendeur', coef: 0.92, gain: '-8%', description: 'Vitesse descente +8 % — exploiter les descentes' },
-    { profil: 'Descendeur moyen', coef: 1.00, gain: '0%', description: 'Pas d’ajustement — rythme standard' },
-    { profil: 'Descendeur faible', coef: 1.10, gain: '+10%', description: 'Prudence en descente — prévoir plus de temps' },
-  ],
+  // Note : les anciennes tables fixes "profilForceVitesse" (Grimpeur/Équilibré/Rouleur) et
+  // "profilDescente" (Bon/Moyen/Faible descendeur) ont été retirées. Le coefficient de profil
+  // montée/plat/descente est désormais calculé en continu à partir de la courbe physiologique
+  // de Minetti et al. (2002) combinée à une calibration automatique par athlète, dérivée de ses
+  // propres données GPS de reconnaissance — voir engine.js (minettiTimeMultiplier,
+  // computePersonalCalibration) et le README pour la justification scientifique.
 };
 
 // Options de catégorie de course (liste déroulante PARAMÈTRES!C9)

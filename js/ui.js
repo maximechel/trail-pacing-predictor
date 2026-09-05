@@ -97,50 +97,14 @@ function renderSimpleCoefTable(tableId, rows, onChange, extraCols = []) {
   table.appendChild(tbody);
 }
 
-function renderProfilFVTable(settings, onChange) {
-  const table = $('#table-profil-fv');
-  table.innerHTML = '';
-  table.appendChild(el('thead', {}, el('tr', {}, [
-    el('th', {}, 'Profil'), el('th', {}, 'Coef montée'), el('th', {}, 'Coef plat'), el('th', {}, 'Coef mixte'),
-  ])));
-  const tbody = el('tbody');
-  settings.profilForceVitesse.forEach((row, i) => {
-    const tr = el('tr', {}, [
-      el('td', {}, row.profil),
-      renderNumberCell(row.montee, (v) => { settings.profilForceVitesse[i].montee = v; onChange(); }),
-      renderNumberCell(row.plat, (v) => { settings.profilForceVitesse[i].plat = v; onChange(); }),
-      renderNumberCell(row.mixte, (v) => { settings.profilForceVitesse[i].mixte = v; onChange(); }),
-    ]);
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-}
-
-function renderProfilDescTable(settings, onChange) {
-  const table = $('#table-profil-desc');
-  table.innerHTML = '';
-  table.appendChild(el('thead', {}, el('tr', {}, [
-    el('th', {}, 'Profil descente'), el('th', {}, 'Coef'), el('th', {}, 'Interprétation'),
-  ])));
-  const tbody = el('tbody');
-  settings.profilDescente.forEach((row, i) => {
-    const tr = el('tr', {}, [
-      el('td', {}, row.profil),
-      renderNumberCell(row.coef, (v) => { settings.profilDescente[i].coef = v; onChange(); }),
-      el('td', {}, row.description),
-    ]);
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-}
-
 function renderAllCoefTables(settings, onChange) {
   renderFatigueTable(settings, onChange);
   renderSimpleCoefTable('#table-intensite', settings.intensite, onChange, ['Description']);
   renderSimpleCoefTable('#table-technicite', settings.technicite, onChange, ['Description']);
   renderSimpleCoefTable('#table-conditions', settings.conditions, onChange, ['Description']);
-  renderProfilFVTable(settings, onChange);
-  renderProfilDescTable(settings, onChange);
+  // Les anciennes tables éditables "profil force-vitesse" et "profil descente" ont été retirées :
+  // le coefficient de profil montée/plat/descente est désormais calculé automatiquement (courbe
+  // de Minetti + calibration personnelle par athlète), voir onglet Profils et README.
 }
 
 // ---------- Segments ----------
@@ -190,15 +154,13 @@ function renderProfils(profils) {
     profilItem('⬇️ Vitesse moy DESCENTE', profils.vitesseDescente !== null ? `${fmt(profils.vitesseDescente)} km/h` : '—'),
     profilItem('📊 Ratio Montée / Plat', profils.ratioMonteePlat ?? 'N/A'),
     profilItem('📉 Indice Descente', profils.indiceDescente ?? 'N/A'),
-    profilItem('⭐ PROFIL FORCE-VITESSE', profils.profilForceVitesse),
-    profilItem('→ Coef profil MONTÉE', profils.coefMontee),
-    profilItem('→ Coef profil PLAT', profils.coefPlat),
-    profilItem('→ Coef profil MIXTE', profils.coefMixte),
+    profilItem('⭐ PROFIL FORCE-VITESSE (descriptif)', profils.profilForceVitesse),
+    profilItem('→ Calibration perso MONTÉE', `${fmt(profils.calibMontee, 3)} (${profils.nbEchMontee} seg.)`),
   );
 
   descGrid.append(
-    profilItem('⭐ PROFIL DESCENTE', profils.profilDescente),
-    profilItem('→ Coef profil DESCENTE', profils.coefDescente),
+    profilItem('⭐ PROFIL DESCENTE (descriptif)', profils.profilDescente),
+    profilItem('→ Calibration perso DESCENTE', `${fmt(profils.calibDescente, 3)} (${profils.nbEchDescente} seg.)`),
     profilItem('🧬 Profil complet', profils.profilComplet),
   );
 
@@ -237,6 +199,8 @@ const PACING_COLUMNS = [
   { key: 'totalSegV1', label: 'Total seg (min) V1', adv: true, digits: 1 },
   { key: 'cumulV1', label: 'Cumul (min) V1', adv: true, digits: 1 },
   { key: 'cumulV1HM', label: 'Cumul V1 (h min)', adv: true, align: 'left' },
+  { key: 'coefMinetti', label: 'Coef Minetti', adv: true, digits: 3 },
+  { key: 'coefCalibPerso', label: 'Coef Calib. perso', adv: true, digits: 3 },
   { key: 'coefProfil', label: 'Coef Profil', adv: true, digits: 2 },
   { key: 'tempsV2', label: 'Temps prévu (min) V2', adv: false, digits: 1 },
   { key: 'totalSegV2', label: 'Total seg (min) V2', adv: true, digits: 1 },
@@ -347,7 +311,7 @@ function renderPacingTable(pacing, settings, showAdvanced, rowMeta = {}) {
     penteMoy: '', dureeGPS: fmt(t.dureeGPS, 1), intensite: '', coefIntensite: '', technicite: '', coefTech: '',
     conditions: '', coefCond: '', coefTerrain: '', distCumDebut: '', pctParcoursPct: '', coefFatigue: '',
     tempsV1: fmt(t.tempsV1, 1), pause: fmt(t.pause, 1), totalSegV1: fmt(t.totalSegV1, 1),
-    cumulV1: fmt(t.cumulV1, 1), cumulV1HM: t.cumulV1HM, coefProfil: '',
+    cumulV1: fmt(t.cumulV1, 1), cumulV1HM: t.cumulV1HM, coefMinetti: '', coefCalibPerso: '', coefProfil: '',
     tempsV2: fmt(t.tempsV2, 1), totalSegV2: fmt(t.totalSegV2, 1), cumulV2: fmt(t.cumulV2, 1), cumulV2HM: t.cumulV2HM,
   };
   const footRow = el('tr');
