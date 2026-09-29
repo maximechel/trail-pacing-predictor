@@ -90,6 +90,7 @@ function buildEstimationSnapshot(state) {
     globalDefaults: { ...state.globalDefaults },
     rowOverrides: JSON.parse(JSON.stringify(state.rowOverrides)),
     rowMeta: JSON.parse(JSON.stringify(state.rowMeta)),
+    kmOverrides: JSON.parse(JSON.stringify(state.kmOverrides || {})),
     pacingTotals: state.pacing ? state.pacing.totals : null,
     elevationProfile: state.elevationProfile || downsampleElevationProfile(state.csvRows),
     // Profil altimétrique du GPX officiel de la course, s'il a été chargé — prioritaire sur celui de la

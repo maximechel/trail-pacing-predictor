@@ -219,6 +219,38 @@ table#pacing-table input[type="checkbox"] {
 table#pacing-table th input[type="checkbox"] { vertical-align: middle; margin-right: 4px; }
 tr[data-seg]:has(input[type="checkbox"]:checked) { background: #eaf3ee; }
 
+table#km-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+table#km-table th, table#km-table td {
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+table#km-table th:first-child, table#km-table td:first-child { text-align: left; }
+table#km-table select, table#km-table input[type="number"], table#km-table input[type="text"] {
+  font-size: 0.8rem;
+  padding: 3px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  width: 100%;
+  min-width: 80px;
+}
+table#km-table input[type="text"] { min-width: 130px; }
+table#km-table input[type="checkbox"] {
+  width: auto;
+  min-width: auto;
+  transform: scale(1.15);
+  cursor: pointer;
+}
+tr.km-corrected { background: #fff6e0; }
+tr.km-deleted { background: #fbe4e4; }
+tr.km-deleted td:not(:has(input)) { text-decoration: line-through; color: var(--muted); }
+tr.km-totals-effectif td { font-weight: 700; background: var(--bg); }
+
 .profil-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

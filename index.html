@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=33" />
+<link rel="stylesheet" href="css/style.css?v=34" />
 </head>
 <body>
 <header class="app-header">
@@ -21,8 +21,9 @@
   <button class="tab-btn" data-tab="import">3. Import CSV</button>
   <button class="tab-btn" data-tab="parametres">4. Paramètres</button>
   <button class="tab-btn" data-tab="segments">5. Segments</button>
-  <button class="tab-btn" data-tab="profils">6. Profil GPS</button>
-  <button class="tab-btn" data-tab="pacing">7. Pacing</button>
+  <button class="tab-btn" data-tab="km">6. Km par km</button>
+  <button class="tab-btn" data-tab="profils">7. Profil GPS</button>
+  <button class="tab-btn" data-tab="pacing">8. Pacing</button>
 </nav>
 
 <main>
@@ -286,6 +287,39 @@
     </div>
   </section>
 
+  <!-- ================= TAB 3bis : KM PAR KM ================= -->
+  <section id="tab-km" class="tab-panel">
+    <div class="card">
+      <h2>📏 Km par km — contrôle et corrections manuelles</h2>
+      <p class="hint">
+        Chaque ligne correspond à un kilomètre du parcours, avec les valeurs mesurées par le GPS
+        (distance, D+, D-, temps, vitesse, pente moyenne). Utile pour repérer d'éventuelles erreurs
+        de reconnaissance (arrêt GPS non détecté, saut de distance ou d'altitude…) : renseignez une
+        <strong>valeur corrigée</strong> uniquement pour les champs concernés (les autres restent tels
+        que mesurés), ou cochez <strong>Supprimer</strong> pour exclure entièrement un kilomètre
+        erroné. Ces corrections sont appliquées automatiquement aux segments et
+        <strong>impactent directement l'onglet Pacing</strong> (profil athlète et temps V1/V2) — les
+        segments et le tableau ci-dessous continuent, eux, d'afficher les valeurs mesurées brutes.
+      </p>
+      <button id="km-reset-btn" class="btn-secondary">↺ Effacer toutes les corrections</button>
+      <div class="table-wrap">
+        <table id="km-table">
+          <thead>
+            <tr>
+              <th>Km</th>
+              <th>Distance mesurée (km)</th><th>D+ mesuré (m)</th><th>D- mesuré (m)</th>
+              <th>Temps mesuré (min)</th><th>Vitesse mesurée (km/h)</th><th>Pente moy mesurée (%)</th>
+              <th>Distance corrigée (km)</th><th>D+ corrigé (m)</th><th>D- corrigé (m)</th>
+              <th>Temps corrigé (min)</th><th>Supprimer</th><th>Note</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= TAB 4 : PROFILS ================= -->
   <section id="tab-profils" class="tab-panel">
     <div class="card">
@@ -384,14 +418,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=33"></script>
-<script src="js/engine.js?v=33"></script>
-<script src="js/fit-parser.js?v=33"></script>
-<script src="js/fit-to-csv.js?v=33"></script>
-<script src="js/gpx-parser.js?v=33"></script>
-<script src="js/athletes.js?v=33"></script>
-<script src="js/pdf-export.js?v=33"></script>
-<script src="js/ui.js?v=33"></script>
-<script src="js/main.js?v=33"></script>
+<script src="js/data.js?v=34"></script>
+<script src="js/engine.js?v=34"></script>
+<script src="js/fit-parser.js?v=34"></script>
+<script src="js/fit-to-csv.js?v=34"></script>
+<script src="js/gpx-parser.js?v=34"></script>
+<script src="js/athletes.js?v=34"></script>
+<script src="js/pdf-export.js?v=34"></script>
+<script src="js/ui.js?v=34"></script>
+<script src="js/main.js?v=34"></script>
 </body>
 </html>

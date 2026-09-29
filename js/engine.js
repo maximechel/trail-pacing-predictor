@@ -335,7 +335,7 @@ function computeProfils(segments, settings) {
   };
 }
 
-// ---------- 5. PARAMÈTRES — champs auto ----------
+// ---------- 6. PARAMÈTRES — champs auto ----------
 
 function computeCourseAutoFields(csvRows) {
   const maxDistCum = csvRows.reduce((m, r) => Math.max(m, r.distance_cum_m || 0), 0);
@@ -345,7 +345,7 @@ function computeCourseAutoFields(csvRows) {
   return { distanceTotaleKm, dPlusTotal, dMinusTotal };
 }
 
-// ---------- 6. PACING ----------
+// ---------- 7. PACING ----------
 
 function lookupCoef(list, label) {
   const row = list.find((r) => r.label === label);
@@ -461,11 +461,187 @@ function computePacing(segments, settings, profils, distanceTotaleKm, categorieC
   return { rows, totals, k };
 }
 
+// ---------- 8. TABLEAU KILOMÈTRE PAR KILOMÈTRE (contrôle + corrections manuelles) ----------
+
+/** Ajoute à chaque segment son intervalle de distance cumulée [kmStart, kmEnd) en km. */
+function segmentsWithKmRange(segments) {
+  let cum = 0;
+  return segments.map((s) => {
+    const kmStart = cum;
+    const dist = s.distanceKm || 0;
+    cum += dist;
+    return { seg: s, kmStart, kmEnd: cum };
+  });
+}
+
+/**
+ * Construit le tableau kilomètre par kilomètre à partir des SEGMENTS mesurés (bruts, non corrigés) —
+ * une vue de contrôle qui permet de repérer d'éventuelles erreurs de parcours lors de la
+ * reconnaissance (arrêt GPS non détecté, saut de distance/altitude...). Chaque segment (montée/
+ * plat/descente — plus court ou, parfois, plus long qu'un kilomètre) est réparti au prorata de sa
+ * distance sur le ou les kilomètres qu'il chevauche.
+ */
+function buildKmTable(segments) {
+  const withRange = segmentsWithKmRange(segments);
+  const totalKm = withRange.length ? withRange[withRange.length - 1].kmEnd : 0;
+  const nBins = Math.ceil(totalKm - 1e-9);
+  const bins = [];
+  for (let k = 0; k < nBins; k++) {
+    const binStart = k;
+    const binEnd = Math.min(k + 1, totalKm);
+    let distanceKm = 0, dPlus = 0, dMinus = 0, dureeMin = 0;
+    let montee = 0, plat = 0, descente = 0;
+    withRange.forEach(({ seg, kmStart, kmEnd }) => {
+      const overlap = Math.min(kmEnd, binEnd) - Math.max(kmStart, binStart);
+      if (overlap <= 0) return;
+      const segLen = kmEnd - kmStart;
+      const frac = segLen > 0 ? overlap / segLen : 0;
+      distanceKm += overlap;
+      dPlus += (seg.dPlus || 0) * frac;
+      dMinus += (seg.dMinus || 0) * frac;
+      dureeMin += (seg.dureeMin || 0) * frac;
+      if (seg.type === 'montee') montee += overlap;
+      else if (seg.type === 'descente') descente += overlap;
+      else plat += overlap;
+    });
+    const vitesseMoy = dureeMin > 0 ? excelRound((distanceKm / dureeMin) * 60, 2) : null;
+    const penteMoy = distanceKm > 0 ? excelRound(((dPlus - dMinus) / (distanceKm * 1000)) * 100, 1) : null;
+    bins.push({
+      kmIndex: k,
+      kmFin: excelRound(binEnd, 3),
+      distanceKm: excelRound(distanceKm, 3),
+      dPlus: excelRound(dPlus, 1),
+      dMinus: excelRound(dMinus, 1),
+      dureeMin: excelRound(dureeMin, 2),
+      vitesseMoy,
+      penteMoy,
+      montee: excelRound(montee, 3),
+      plat: excelRound(plat, 3),
+      descente: excelRound(descente, 3),
+    });
+  }
+  return bins;
+}
+
+/**
+ * Applique les corrections manuelles saisies km par km (`kmOverrides`, objet indexé par `kmIndex`)
+ * aux SEGMENTS mesurés, pour produire une version corrigée à transmettre à computeProfils/
+ * computePacing à la place des segments bruts. Champs possibles par entrée de
+ * `kmOverrides[kmIndex]` : `distanceKm`, `dPlus`, `dMinus`, `dureeMin` (chacun optionnel — un champ
+ * non renseigné = valeur mesurée conservée pour ce kilomètre) et `deleted` (true = kilomètre
+ * entièrement exclu du calcul, quels que soient les autres champs).
+ *
+ * Principe : pour chaque kilomètre corrigé, l'écart entre valeur corrigée et valeur mesurée (ou la
+ * valeur mesurée entière si le kilomètre est supprimé) est réparti entre les segments qui
+ * chevauchent ce kilomètre, au prorata de leur contribution mesurée à ce kilomètre précis (ou, si
+ * cette contribution était nulle — ex. D+ ajouté sur un kilomètre qui n'en avait mesuré aucun —, au
+ * prorata de leur simple chevauchement en distance). Un segment qui ne chevauche aucun kilomètre
+ * corrigé n'est pas modifié ; un segment qui chevauche plusieurs kilomètres ne subit l'ajustement
+ * que sur la portion concernée.
+ */
+function applyKmOverrides(segments, kmOverrides) {
+  if (!kmOverrides || Object.keys(kmOverrides).length === 0) return segments;
+
+  const withRange = segmentsWithKmRange(segments);
+  const totalKm = withRange.length ? withRange[withRange.length - 1].kmEnd : 0;
+  const nBins = Math.ceil(totalKm - 1e-9);
+
+  // 1. Pour chaque kilomètre concerné par une correction, calcule la contribution mesurée de
+  //    chaque segment qui le chevauche (portion de distance/D+/D-/durée).
+  const binPortions = {}; // kmIndex -> [{ idx, overlap, pDist, pDPlus, pDMinus, pDuree }]
+  const binTotals = {};   // kmIndex -> { distanceKm, dPlus, dMinus, dureeMin } (mesurés)
+
+  withRange.forEach(({ seg, kmStart, kmEnd }, idx) => {
+    const segLen = kmEnd - kmStart;
+    const kFrom = Math.max(0, Math.floor(kmStart));
+    const kTo = Math.min(nBins - 1, Math.ceil(kmEnd - 1e-9) - 1);
+    for (let k = kFrom; k <= kTo; k++) {
+      if (!kmOverrides[k]) continue;
+      const binStart = k;
+      const binEnd = Math.min(k + 1, totalKm);
+      const overlap = Math.min(kmEnd, binEnd) - Math.max(kmStart, binStart);
+      if (overlap <= 0) continue;
+      const frac = segLen > 0 ? overlap / segLen : 0;
+      const portion = {
+        idx, overlap,
+        pDist: overlap,
+        pDPlus: (seg.dPlus || 0) * frac,
+        pDMinus: (seg.dMinus || 0) * frac,
+        pDuree: (seg.dureeMin || 0) * frac,
+      };
+      if (!binPortions[k]) binPortions[k] = [];
+      binPortions[k].push(portion);
+      if (!binTotals[k]) binTotals[k] = { distanceKm: 0, dPlus: 0, dMinus: 0, dureeMin: 0 };
+      binTotals[k].distanceKm += portion.pDist;
+      binTotals[k].dPlus += portion.pDPlus;
+      binTotals[k].dMinus += portion.pDMinus;
+      binTotals[k].dureeMin += portion.pDuree;
+    }
+  });
+
+  // 2. Pour chaque segment, accumule le delta net (distance/D+/D-/durée) résultant de tous les
+  //    kilomètres corrigés qu'il chevauche.
+  const deltaByIdx = {};
+  function addDelta(idx, field, value) {
+    if (!deltaByIdx[idx]) deltaByIdx[idx] = { distanceKm: 0, dPlus: 0, dMinus: 0, dureeMin: 0 };
+    deltaByIdx[idx][field] += value;
+  }
+  const FIELD_PORTION_KEY = { distanceKm: 'pDist', dPlus: 'pDPlus', dMinus: 'pDMinus', dureeMin: 'pDuree' };
+
+  Object.keys(binPortions).forEach((kStr) => {
+    const k = Number(kStr);
+    const ov = kmOverrides[k];
+    const portions = binPortions[k];
+    const base = binTotals[k];
+
+    if (ov && ov.deleted) {
+      // Suppression complète du kilomètre : chaque segment perd exactement sa portion mesurée ici.
+      portions.forEach((p) => {
+        addDelta(p.idx, 'distanceKm', -p.pDist);
+        addDelta(p.idx, 'dPlus', -p.pDPlus);
+        addDelta(p.idx, 'dMinus', -p.pDMinus);
+        addDelta(p.idx, 'dureeMin', -p.pDuree);
+      });
+      return;
+    }
+
+    Object.keys(FIELD_PORTION_KEY).forEach((field) => {
+      const overrideVal = ov ? ov[field] : null;
+      if (overrideVal === null || overrideVal === undefined || overrideVal === '') return;
+      const baseVal = base[field];
+      const delta = overrideVal - baseVal;
+      if (delta === 0) return;
+      const fieldKey = FIELD_PORTION_KEY[field];
+      const distWeightDenom = base.distanceKm > 0 ? base.distanceKm : portions.length;
+      portions.forEach((p) => {
+        const weight = baseVal > 0 ? (p[fieldKey] / baseVal) : (p.overlap / distWeightDenom);
+        addDelta(p.idx, field, delta * weight);
+      });
+    });
+  });
+
+  // 3. Applique les deltas cumulés à chaque segment concerné (les segments non concernés sont
+  //    renvoyés tels quels, avec la même référence — numero/type préservés pour ne pas casser le
+  //    lien avec les réglages par ligne du Pacing, indexés par numero).
+  return segments.map((seg, idx) => {
+    const d = deltaByIdx[idx];
+    if (!d) return seg;
+    const distanceKm = Math.max(0, excelRound((seg.distanceKm || 0) + d.distanceKm, 3));
+    const dPlus = Math.max(0, excelRound((seg.dPlus || 0) + d.dPlus, 1));
+    const dMinus = Math.max(0, excelRound((seg.dMinus || 0) + d.dMinus, 1));
+    const dureeMin = Math.max(0, excelRound((seg.dureeMin || 0) + d.dureeMin, 2));
+    const vitesseMoy = dureeMin > 0 ? excelRound((distanceKm / dureeMin) * 60, 2) : null;
+    const penteMoy = distanceKm > 0 ? excelRound(((dPlus - dMinus) / (distanceKm * 1000)) * 100, 1) : seg.penteMoy;
+    return { ...seg, distanceKm, dPlus, dMinus, dureeMin, vitesseMoy, penteMoy };
+  });
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
     excelRound, toNumber, average, sum, formatHM,
     parseImportCSV, assignSegmentGroups, buildSegments,
     minettiCostOfTransport, minettiTimeMultiplier, computePersonalCalibration,
     computeProfils, computeCourseAutoFields, computePacing,
+    buildKmTable, applyKmOverrides,
   };
 }

@@ -171,6 +171,101 @@ function renderProfils(profils) {
   );
 }
 
+// ---------- Km par km (contrôle + corrections manuelles) ----------
+
+function kmOverrideActive(ov) {
+  if (!ov) return false;
+  return !!ov.deleted || ov.distanceKm !== undefined || ov.dPlus !== undefined
+    || ov.dMinus !== undefined || ov.dureeMin !== undefined;
+}
+
+/**
+ * Rend le tableau "Km par km" : pour chaque kilomètre, les valeurs mesurées (lecture seule) et des
+ * champs de correction manuelle (distance/D+/D-/temps, suppression, note). Une correction laissée
+ * vide = valeur mesurée conservée pour ce champ. Les corrections sont stockées dans
+ * `kmOverrides[kmIndex]` et appliquées aux segments avant tout calcul de profils/pacing (voir
+ * js/engine.js applyKmOverrides et main.js recomputeEffectiveSegments).
+ */
+function renderKmTable(kmTable, kmOverrides, effectiveTotals) {
+  const tbody = $('#km-table tbody');
+  const tfoot = $('#km-table tfoot');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  if (tfoot) tfoot.innerHTML = '';
+  if (!kmTable || kmTable.length === 0) {
+    tbody.appendChild(el('tr', {}, el('td', { colspan: '13' }, 'Aucun kilomètre — importez un CSV.')));
+    return;
+  }
+
+  kmTable.forEach((bin) => {
+    const k = bin.kmIndex;
+    const ov = kmOverrides[k] || {};
+    const isDeleted = !!ov.deleted;
+    const isCorrected = kmOverrideActive(ov);
+    const trClasses = [isDeleted ? 'km-deleted' : (isCorrected ? 'km-corrected' : '')].filter(Boolean).join(' ');
+
+    function correctionCell(field, digits, step = '0.01') {
+      const input = el('input', {
+        type: 'number', step, placeholder: String(fmt(bin[field], digits)),
+        value: ov[field] !== undefined ? String(ov[field]) : '',
+        'data-km': String(k), 'data-field': field,
+      });
+      if (isDeleted) input.disabled = true;
+      return el('td', {}, input);
+    }
+
+    const deleteInput = el('input', { type: 'checkbox', 'data-km': String(k), 'data-field': 'deleted' });
+    if (isDeleted) deleteInput.checked = true;
+
+    const noteInput = el('input', {
+      type: 'text', placeholder: 'ex. GPS a sauté ici', value: ov.note || '',
+      'data-km': String(k), 'data-field': 'note',
+    });
+
+    const tr = el('tr', trClasses ? { class: trClasses } : {}, [
+      el('td', {}, `${k} – ${fmt(bin.kmFin, 2)} km`),
+      el('td', {}, fmt(bin.distanceKm, 3)),
+      el('td', {}, fmt(bin.dPlus, 1)),
+      el('td', {}, fmt(bin.dMinus, 1)),
+      el('td', {}, fmt(bin.dureeMin, 2)),
+      el('td', {}, bin.vitesseMoy !== null ? fmt(bin.vitesseMoy, 2) : '—'),
+      el('td', {}, bin.penteMoy !== null ? fmt(bin.penteMoy, 1) : '—'),
+      correctionCell('distanceKm', 3, '0.01'),
+      correctionCell('dPlus', 1, '1'),
+      correctionCell('dMinus', 1, '1'),
+      correctionCell('dureeMin', 2, '0.1'),
+      el('td', {}, deleteInput),
+      el('td', {}, noteInput),
+    ]);
+    tbody.appendChild(tr);
+  });
+
+  if (tfoot && effectiveTotals) {
+    const totalMesure = {
+      distanceKm: sum(kmTable.map((b) => b.distanceKm)),
+      dPlus: sum(kmTable.map((b) => b.dPlus)),
+      dMinus: sum(kmTable.map((b) => b.dMinus)),
+      dureeMin: sum(kmTable.map((b) => b.dureeMin)),
+    };
+    tfoot.appendChild(el('tr', {}, [
+      el('td', {}, 'TOTAL mesuré'),
+      el('td', {}, fmt(totalMesure.distanceKm, 3)),
+      el('td', {}, fmt(totalMesure.dPlus, 1)),
+      el('td', {}, fmt(totalMesure.dMinus, 1)),
+      el('td', {}, fmt(totalMesure.dureeMin, 2)),
+      el('td', { colspan: '8' }, ''),
+    ]));
+    tfoot.appendChild(el('tr', { class: 'km-totals-effectif' }, [
+      el('td', {}, 'TOTAL effectif (après corrections)'),
+      el('td', {}, fmt(effectiveTotals.distanceKm, 3)),
+      el('td', {}, fmt(effectiveTotals.dPlus, 1)),
+      el('td', {}, fmt(effectiveTotals.dMinus, 1)),
+      el('td', {}, fmt(effectiveTotals.dureeMin, 2)),
+      el('td', { colspan: '8' }, ''),
+    ]));
+  }
+}
+
 // ---------- Pacing ----------
 
 const PACING_COLUMNS = [

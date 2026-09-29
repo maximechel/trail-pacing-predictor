@@ -40,7 +40,7 @@ https://<votre-utilisateur-github>.github.io/<nom-du-depot>/
 Aucune étape de build n'est nécessaire : le site est servi tel quel.
 
 > ⚠️ **Cache navigateur** : `index.html` charge `css/style.css` et les fichiers `js/*.js` avec un paramètre
-> `?v=33`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=34`, `?v=35`…) dans `index.html`
+> `?v=34`. Après chaque mise à jour du CSS ou du JS, incrémentez ce numéro (`?v=35`, `?v=36`…) dans `index.html`
 > avant de pousser — sinon les navigateurs qui ont déjà visité le site peuvent continuer à afficher
 > l'ancienne version de ces fichiers pendant un moment, même après un déploiement réussi.
 
@@ -67,9 +67,10 @@ L'application suit exactement le même pipeline que les onglets du classeur Exce
 | `IMPORT_CSV` | **3. Import CSV** | Collez ou chargez le CSV GPS traité (16 colonnes, séparateur `;`) |
 | `TRAITEMENT` | *(interne)* | Segmentation automatique par regroupement des points GPS consécutifs de même type (`segment_type_smooth`) |
 | `SEGMENTS` | **5. Segments** | Agrégation par segment : distance, D+/D-, durée, vitesse et pente moyennes |
-| `PROFILS` | **6. Profil GPS** | Profil force-vitesse et profil descente **descriptifs** (Grimpeur / Équilibré / Rouleur, Bon / Moyen / Faible descendeur), plus la **calibration personnelle Minetti** (facteurs montée/descente) réellement utilisée dans le calcul, calculée depuis la reconnaissance GPS importée — voir [Modèle Minetti](#-modèle-physiologique-minetti--calibration-personnelle) |
+| *(nouveau, sans équivalent Excel)* | **6. Km par km** | Vue de contrôle kilomètre par kilomètre + corrections manuelles, qui impactent directement le Pacing — voir [Km par km](#-km-par-km--corrections-manuelles) |
+| `PROFILS` | **7. Profil GPS** | Profil force-vitesse et profil descente **descriptifs** (Grimpeur / Équilibré / Rouleur, Bon / Moyen / Faible descendeur), plus la **calibration personnelle Minetti** (facteurs montée/descente) réellement utilisée dans le calcul, calculée depuis la reconnaissance GPS importée (corrigée, le cas échéant) — voir [Modèle Minetti](#-modèle-physiologique-minetti--calibration-personnelle) |
 | `PARAMÈTRES` | **4. Paramètres** | Infos course (distance/D+/D- calculées auto depuis le CSV), catégorie, apparence (logo), et les tables de coefficients éditables (fatigue, intensité, technicité, conditions) |
-| `PACING` | **7. Pacing** | Temps prévisionnels par segment : V1 = sans profil athlète, V2 = ajusté à la pente réelle du segment (courbe de Minetti) et à la calibration personnelle de l'athlète |
+| `PACING` | **8. Pacing** | Temps prévisionnels par segment : V1 = sans profil athlète, V2 = ajusté à la pente réelle du segment (courbe de Minetti) et à la calibration personnelle de l'athlète |
 
 ### Profils athlètes (nouveau)
 
@@ -297,6 +298,37 @@ trail-pacing-predictor/
 ├── sample-data/exemple_import.csv  CSV de démonstration
 └── .github/workflows/deploy.yml  Déploiement automatique sur GitHub Pages
 ```
+
+## 📏 Km par km — corrections manuelles
+
+L'onglet **6. Km par km** affiche, pour chaque kilomètre du parcours, les valeurs **mesurées** par le
+GPS lors de la reconnaissance (distance, D+, D-, temps, vitesse moyenne, pente moyenne) — pratique
+pour repérer visuellement une anomalie (un kilomètre anormalement lent ou rapide révèle souvent une
+erreur de terrain : arrêt GPS non détecté, pause chronométrée par erreur comme du déplacement, saut
+de position ou d'altitude dû à une perte de signal…).
+
+À côté de chaque valeur mesurée, quatre champs permettent une **correction manuelle**, chacun
+optionnel (un champ laissé vide conserve la valeur mesurée) : distance, D+, D-, temps. Une case
+**Supprimer** permet d'exclure entièrement un kilomètre du calcul si la trace GPS y est jugée trop
+peu fiable pour être corrigée finement. Un champ **Note** (libre) permet de documenter la raison de
+la correction, pour référence future.
+
+Techniquement, ces corrections sont appliquées aux segments GPS bruts (`js/engine.js`,
+`applyKmOverrides`) *avant* le calcul du profil athlète et du pacing : l'écart entre valeur corrigée
+et valeur mesurée pour un kilomètre donné est réparti entre le ou les segments qui le chevauchent, au
+prorata de leur contribution mesurée à ce kilomètre. Le résultat — les « segments effectifs » — est
+ensuite ce qui alimente `computeProfils` et `computePacing`, donc la **calibration Minetti** (onglet
+Profil GPS) et les **temps V1/V2** (onglet Pacing) reflètent bien la correction. Les onglets
+**Segments** et **Km par km** eux-mêmes continuent d'afficher les valeurs mesurées brutes, non
+corrigées — pour toujours pouvoir comparer mesure et correction. Un bouton permet d'effacer toutes
+les corrections en un clic pour revenir aux valeurs mesurées. Les corrections sont sauvegardées avec
+le brouillon en cours et avec chaque estimation enregistrée dans le profil d'un athlète.
+
+Validation : `applyKmOverrides` et `buildKmTable` ont été testés via un script Node dédié qui vérifie
+la répartition correcte d'un segment à cheval sur plusieurs kilomètres, la correction d'un kilomètre
+partagé par plusieurs segments, la suppression complète d'un kilomètre, l'ajout d'une valeur sur un
+champ initialement nul, un invariant de conservation sur données aléatoires, et l'impact réel d'une
+correction sur le temps total prévu par `computePacing`.
 
 ## 🔬 Modèle physiologique Minetti + calibration personnelle
 

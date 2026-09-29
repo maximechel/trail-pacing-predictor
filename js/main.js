@@ -19,6 +19,9 @@ const state = {
   globalDefaults: { intensite: 'Facile (endurance)', technicite: 'Modérée (singletrack)', conditions: 'Sec, bon sol' },
   rowOverrides: {},       // { [numero]: { intensite, technicite, conditions, pause } }
   rowMeta: {},            // { [numero]: { selected, label } } — purement présentationnel (repères, export)
+  kmOverrides: {},        // { [kmIndex]: { distanceKm, dPlus, dMinus, dureeMin, deleted, note } } — corrections manuelles km par km
+  kmTable: [],            // tableau km par km MESURÉ (brut), reconstruit à chaque recomputeAll()
+  effectiveSegments: [],  // segments après application de kmOverrides — utilisés pour profils/pacing (segments = version brute, pour la référence)
   pacing: null,
   showAdvanced: false,
   athletes: [],           // profils athlètes (cf. athletes.js)
@@ -55,6 +58,7 @@ function saveDraft() {
     globalDefaults: state.globalDefaults,
     rowOverrides: state.rowOverrides,
     rowMeta: state.rowMeta,
+    kmOverrides: state.kmOverrides,
     showAdvanced: state.showAdvanced,
     loadedEstimationId: state.loadedEstimationId,
   };
@@ -106,21 +110,36 @@ function suggestCategorie(distanceKm) {
   return '> 100 km (ultra)';
 }
 
+/**
+ * Reconstruit state.effectiveSegments (segments après application des corrections manuelles
+ * kilomètre par kilomètre, cf. js/engine.js applyKmOverrides) à partir de state.segments (bruts) et
+ * state.kmOverrides. C'est effectiveSegments — pas segments — qui alimente computeProfils et
+ * computePacing : la table "Segments" et le tableau "Km par km" continuent d'afficher les valeurs
+ * mesurées brutes, mais le calcul de pacing reflète les corrections de l'utilisateur.
+ */
+function recomputeEffectiveSegments() {
+  state.kmTable = state.segments.length ? buildKmTable(state.segments) : [];
+  state.effectiveSegments = applyKmOverrides(state.segments, state.kmOverrides);
+}
+
 function recomputeAll() {
   // Si un CSV brut est chargé, on recalcule tout depuis les points GPS. Sinon on garde
-  // segments/profils/auto tels quels : c'est le cas quand une estimation sauvegardée a été
-  // rechargée depuis un profil athlète (elle ne contient pas les points GPS bruts, déjà agrégés).
+  // segments/auto tels quels : c'est le cas quand une estimation sauvegardée a été rechargée
+  // depuis un profil athlète (elle ne contient pas les points GPS bruts, déjà agrégés).
   if (state.csvRows) {
     state.auto = computeCourseAutoFields(state.csvRows);
     const grouped = assignSegmentGroups(state.csvRows);
     state.segments = buildSegments(grouped);
-    state.profils = computeProfils(state.segments, state.settings);
   }
 
-  state.pacing = state.segments.length
+  recomputeEffectiveSegments();
+  state.profils = state.effectiveSegments.length ? computeProfils(state.effectiveSegments, state.settings) : null;
+
+  const distanceTotaleEffectiveKm = sum(state.effectiveSegments.map((s) => s.distanceKm || 0));
+  state.pacing = state.effectiveSegments.length
     ? computePacing(
-        state.segments, state.settings, state.profils || { calibMontee: 1, calibDescente: 1 },
-        state.auto.distanceTotaleKm, state.categorie, state.globalDefaults, state.rowOverrides,
+        state.effectiveSegments, state.settings, state.profils || { calibMontee: 1, calibDescente: 1 },
+        distanceTotaleEffectiveKm, state.categorie, state.globalDefaults, state.rowOverrides,
       )
     : null;
 
@@ -135,10 +154,11 @@ function recomputeAll() {
  * ou plantages perçus lors de clics répétés (ex. flèches d'un champ pause).
  */
 function recomputePacingOnly() {
-  state.pacing = state.segments.length
+  const distanceTotaleEffectiveKm = sum(state.effectiveSegments.map((s) => s.distanceKm || 0));
+  state.pacing = state.effectiveSegments.length
     ? computePacing(
-        state.segments, state.settings, state.profils || { calibMontee: 1, calibDescente: 1 },
-        state.auto.distanceTotaleKm, state.categorie, state.globalDefaults, state.rowOverrides,
+        state.effectiveSegments, state.settings, state.profils || { calibMontee: 1, calibDescente: 1 },
+        distanceTotaleEffectiveKm, state.categorie, state.globalDefaults, state.rowOverrides,
       )
     : null;
 
@@ -163,6 +183,14 @@ function renderAll() {
 
   // Profils
   renderProfils(state.profils);
+
+  // Km par km
+  renderKmTable(state.kmTable, state.kmOverrides, {
+    distanceKm: sum(state.effectiveSegments.map((s) => s.distanceKm || 0)),
+    dPlus: sum(state.effectiveSegments.map((s) => s.dPlus || 0)),
+    dMinus: sum(state.effectiveSegments.map((s) => s.dMinus || 0)),
+    dureeMin: sum(state.effectiveSegments.map((s) => s.dureeMin || 0)),
+  });
 
   // Pacing — réglages globaux
   populateSelect($('#global-intensite'), state.settings.intensite, state.globalDefaults.intensite);
@@ -309,6 +337,7 @@ function loadEstimation(estimationId) {
   state.globalDefaults = { ...est.globalDefaults };
   state.rowOverrides = JSON.parse(JSON.stringify(est.rowOverrides || {}));
   state.rowMeta = JSON.parse(JSON.stringify(est.rowMeta || {}));
+  state.kmOverrides = JSON.parse(JSON.stringify(est.kmOverrides || {}));
   state.loadedEstimationId = estimationId; // permet de "mettre à jour" cette même entrée en la resauvegardant
 
   recomputeAll();
@@ -513,6 +542,7 @@ function analyzeCSV(text) {
     state.elevationProfile = null; // les points bruts fraîchement importés font foi, plus besoin du repli
     state.rowOverrides = {};
     state.rowMeta = {};
+    state.kmOverrides = {};
     state.loadedEstimationId = null; // une nouvelle reconnaissance GPS = une nouvelle estimation, pas une modification
     const auto = computeCourseAutoFields(rows);
     state.categorie = suggestCategorie(auto.distanceTotaleKm);
@@ -572,6 +602,9 @@ function wireImportTab() {
     state.pacing = null;
     state.rowOverrides = {};
     state.rowMeta = {};
+    state.kmOverrides = {};
+    state.kmTable = [];
+    state.effectiveSegments = [];
     state.loadedEstimationId = null;
     $('#import-status').textContent = '';
     $('#gpx-file-input').value = '';
@@ -630,6 +663,64 @@ function loadLogo() {
     const saved = localStorage.getItem(STORAGE_KEY_LOGO);
     if (saved) $('#app-logo').src = saved;
   } catch (e) { /* ignore */ }
+}
+
+// ---------- Km par km (contrôle + corrections manuelles) ----------
+
+function wireKmTab() {
+  const table = $('#km-table');
+  if (!table) return;
+
+  table.addEventListener('change', (e) => {
+    const target = e.target;
+    const km = target.dataset.km;
+    const field = target.dataset.field;
+    if (km === undefined || !field) return;
+    if (field === 'note') return; // géré par l'écouteur 'input' ci-dessous (évite de perdre le focus)
+
+    if (!state.kmOverrides[km]) state.kmOverrides[km] = {};
+
+    if (field === 'deleted') {
+      state.kmOverrides[km].deleted = target.checked;
+    } else {
+      const v = target.value.trim();
+      if (v === '') {
+        delete state.kmOverrides[km][field];
+      } else {
+        const n = parseFloat(v);
+        if (!Number.isNaN(n)) state.kmOverrides[km][field] = n;
+      }
+    }
+    // Une entrée totalement vide (aucun champ, pas de note) est nettoyée pour ne pas polluer
+    // l'état sauvegardé indéfiniment.
+    const ov = state.kmOverrides[km];
+    if (ov && !ov.deleted && ov.distanceKm === undefined && ov.dPlus === undefined
+      && ov.dMinus === undefined && ov.dureeMin === undefined && !ov.note) {
+      delete state.kmOverrides[km];
+    }
+
+    // Une correction km change la segmentation effective vue par profils/pacing : recalcul complet.
+    recomputeAll();
+  });
+
+  table.addEventListener('input', (e) => {
+    const target = e.target;
+    if (target.dataset.field !== 'note') return;
+    const km = target.dataset.km;
+    if (km === undefined) return;
+    if (!state.kmOverrides[km]) state.kmOverrides[km] = {};
+    state.kmOverrides[km].note = target.value;
+    scheduleDraftSave();
+  });
+
+  const resetBtn = $('#km-reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Effacer toutes les corrections manuelles km par km ?')) return;
+      state.kmOverrides = {};
+      recomputeAll();
+    });
+  }
 }
 
 // ---------- Pacing ----------
@@ -839,6 +930,7 @@ function init() {
     state.globalDefaults = draft.globalDefaults ?? state.globalDefaults;
     state.rowOverrides = draft.rowOverrides ?? {};
     state.rowMeta = draft.rowMeta ?? {};
+    state.kmOverrides = draft.kmOverrides ?? {};
     state.showAdvanced = !!draft.showAdvanced;
     if (draft.loadedEstimationId) state.loadedEstimationId = draft.loadedEstimationId;
   }
@@ -848,6 +940,7 @@ function init() {
   wireFitTab();
   wireImportTab();
   wireParametresTab();
+  wireKmTab();
   wirePacingTab();
   loadLogo();
   $('#app-logo').addEventListener('error', () => { $('#app-logo').style.display = 'none'; });
