@@ -377,8 +377,9 @@ function renderPacingTable(pacing, settings, showAdvanced, rowMeta = {}) {
         td = el('td', { class: col.adv ? 'adv' : '' }, input);
       } else if (col.editable === 'text') {
         const value = pacingSpecialValue(col, row, rowMeta);
+        const placeholder = row.numero === 0 ? 'Départ' : 'ex. Ravito du Col';
         const input = el('input', {
-          type: 'text', placeholder: 'ex. Ravito du Col', value: String(value),
+          type: 'text', placeholder, value: String(value),
           'data-field': col.key, 'data-seg': String(row.numero),
         });
         td = el('td', { class: col.adv ? 'adv' : '' }, input);

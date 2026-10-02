@@ -370,6 +370,49 @@ function computePacing(segments, settings, profils, distanceTotaleKm, categorieC
   let cumV1 = 0;
   let cumV2 = 0;
 
+  // Ligne "Départ" (N° 0) : ajoutée automatiquement en tête de tableau à chaque import, pour
+  // repérer/nommer le point de départ exactement comme les autres repères (colonne "Repère"),
+  // sans affecter les cumuls de distance/D+/D-/temps du parcours (valeurs à 0, hormis une
+  // éventuelle pause réglée manuellement sur cette ligne — ex. temps d'attente avant le départ —
+  // qui vient alors s'ajouter normalement aux cumuls V1/V2 comme pour n'importe quel autre repère).
+  const depOv = rowOverrides[0] || {};
+  const depIntensite = depOv.intensite || globalDefaults.intensite;
+  const depTechnicite = depOv.technicite || globalDefaults.technicite;
+  const depConditions = depOv.conditions || globalDefaults.conditions;
+  const depPause = typeof depOv.pause === 'number' ? depOv.pause : 0;
+  cumV1 += depPause;
+  cumV2 += depPause;
+  rows.push({
+    numero: 0,
+    nom: 'Départ',
+    type: 'depart',
+    distanceKm: 0,
+    dPlus: 0,
+    dMinus: 0,
+    penteMoy: 0,
+    dureeGPS: 0,
+    intensite: depIntensite,
+    coefIntensite: 0,
+    technicite: depTechnicite,
+    coefTech: 0,
+    conditions: depConditions,
+    coefCond: 0,
+    coefTerrain: 0,
+    distCumDebut: 0,
+    pctParcours: 0,
+    coefFatigue: 0,
+    tempsV1: 0,
+    pause: depPause,
+    totalSegV1: depPause,
+    cumulV1: depPause ? cumV1 : 0,
+    cumulV1HM: formatHM(cumV1),
+    coefProfil: 0,
+    tempsV2: 0,
+    totalSegV2: depPause,
+    cumulV2: depPause ? cumV2 : 0,
+    cumulV2HM: formatHM(cumV2),
+  });
+
   for (const seg of segments) {
     const ov = rowOverrides[seg.numero] || {};
     const intensite = ov.intensite || globalDefaults.intensite;

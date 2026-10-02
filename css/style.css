@@ -197,6 +197,8 @@ table thead th {
 tr.type-montee td.type-cell { color: var(--accent-montee); font-weight: 700; }
 tr.type-plat td.type-cell { color: var(--accent-plat); font-weight: 700; }
 tr.type-descente td.type-cell { color: var(--accent-descente); font-weight: 700; }
+tr.type-depart { background: #eef1f0; }
+tr.type-depart td.type-cell { color: var(--brand-blue); font-weight: 700; }
 
 tfoot td { font-weight: 700; background: var(--bg); }
 
