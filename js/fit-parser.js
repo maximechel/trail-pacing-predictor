@@ -38,6 +38,7 @@ const FIELD_RECORD_LAT = 0;
 const FIELD_RECORD_LON = 1;
 const FIELD_RECORD_ALTITUDE = 2;
 const FIELD_RECORD_ENHANCED_ALTITUDE = 78;
+const FIELD_RECORD_DISTANCE = 5; // distance cumulée mesurée par la montre (uint32, échelle 1/100 m)
 const FIELD_FILEID_TIME_CREATED = 4;
 
 function semicirclesToDegrees(v) {
@@ -188,6 +189,7 @@ function parseFitPoints(arrayBuffer) {
       let lon = null;
       let altitude = null;
       let enhancedAltitude = null;
+      let watchDistance = null;
 
       const allFields = def.fields.concat(def.devFields || []);
       for (const f of allFields) {
@@ -198,6 +200,7 @@ function parseFitPoints(arrayBuffer) {
           else if (f.num === FIELD_RECORD_LON && value !== null) lon = semicirclesToDegrees(value);
           else if (f.num === FIELD_RECORD_ALTITUDE && value !== null) altitude = value / 5 - 500;
           else if (f.num === FIELD_RECORD_ENHANCED_ALTITUDE && value !== null) enhancedAltitude = value / 5 - 500;
+          else if (f.num === FIELD_RECORD_DISTANCE && value !== null) watchDistance = value / 100;
         } else if (def.globalMsgNum === GLOBAL_MSG_FILE_ID) {
           if (f.num === FIELD_FILEID_TIME_CREATED && value !== null) fileIdTimeCreated = value;
         }
@@ -222,6 +225,7 @@ function parseFitPoints(arrayBuffer) {
           lat,
           lon,
           altitude: enhancedAltitude !== null ? enhancedAltitude : altitude,
+          distance: watchDistance, // distance cumulée (m) telle qu'affichée par la montre, ou null
         });
       }
     }

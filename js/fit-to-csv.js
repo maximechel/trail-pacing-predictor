@@ -68,6 +68,19 @@ function buildImportRowsFromPoints(points) {
   const slopeRaw = new Array(n).fill(null);
   const typeRaw = new Array(n).fill(null);
 
+  // Distance : si le fichier contient la distance cumulée enregistrée par la montre (champ "distance"
+  // des messages record, celle affichée à l'écran), on s'en sert plutôt que d'additionner les
+  // distances haversine point à point, qui cumulent le bruit GPS et surestiment le kilométrage réel.
+  // Repli sur haversine si le fichier n'en contient pas (ou trop peu).
+  const withWatchDist = pts.filter((p) => typeof p.distance === 'number').length;
+  const useWatchDistance = withWatchDist >= n * 0.5;
+  let lastWatchDist = null;
+  const watchCum = pts.map((p) => {
+    if (typeof p.distance === 'number') lastWatchDist = p.distance;
+    return lastWatchDist;
+  });
+  const firstWatchDist = watchCum.find((v) => v !== null) ?? 0;
+
   let cum = 0;
   for (let i = 0; i < n; i++) {
     if (i === 0) {
@@ -75,7 +88,9 @@ function buildImportRowsFromPoints(points) {
       distanceCum[i] = 0;
       continue;
     }
-    const d = haversineMeters(pts[i - 1].lat, pts[i - 1].lon, pts[i].lat, pts[i].lon);
+    const d = useWatchDistance
+      ? Math.max(0, (watchCum[i] ?? firstWatchDist) - (watchCum[i - 1] ?? firstWatchDist))
+      : haversineMeters(pts[i - 1].lat, pts[i - 1].lon, pts[i].lat, pts[i].lon);
     distanceStep[i] = d;
     cum += d;
     distanceCum[i] = cum;
