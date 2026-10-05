@@ -666,6 +666,9 @@ function applyKmOverrides(segments, kmOverrides) {
   // 3. Applique les deltas cumulés à chaque segment concerné (les segments non concernés sont
   //    renvoyés tels quels, avec la même référence — numero/type préservés pour ne pas casser le
   //    lien avec les réglages par ligne du Pacing, indexés par numero).
+  // Un segment entièrement supprimé (distance ramenée à 0 par la correction) est retiré de la liste
+  // plutôt que conservé à 0 : il disparaît ainsi du tableau Pacing. Les numéros des segments restants
+  // ne sont pas modifiés (lien avec les réglages par ligne préservé).
   return segments.map((seg, idx) => {
     const d = deltaByIdx[idx];
     if (!d) return seg;
@@ -676,6 +679,11 @@ function applyKmOverrides(segments, kmOverrides) {
     const vitesseMoy = dureeMin > 0 ? excelRound((distanceKm / dureeMin) * 60, 2) : null;
     const penteMoy = distanceKm > 0 ? excelRound(((dPlus - dMinus) / (distanceKm * 1000)) * 100, 1) : seg.penteMoy;
     return { ...seg, distanceKm, dPlus, dMinus, dureeMin, vitesseMoy, penteMoy };
+  }).filter((seg, idx) => {
+    // Seuls les segments touchés par une correction peuvent être retirés ; un segment non touché
+    // (même très court) est toujours conservé.
+    if (!deltaByIdx[idx]) return true;
+    return seg.distanceKm > 0;
   });
 }
 
