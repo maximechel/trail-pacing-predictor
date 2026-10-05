@@ -109,23 +109,32 @@ function renderAllCoefTables(settings, onChange) {
 
 // ---------- Segments ----------
 
-function renderSegmentsTable(segments) {
+function renderSegmentsTable(segments, segmentOverrides = {}) {
   const tbody = $('#segments-table tbody');
   tbody.innerHTML = '';
   if (!segments || segments.length === 0) {
-    tbody.appendChild(el('tr', {}, el('td', { colspan: '8' }, 'Aucun segment — importez un CSV.')));
+    tbody.appendChild(el('tr', {}, el('td', { colspan: '10' }, 'Aucun segment — importez un CSV.')));
     return;
   }
+  // Distance cumulée sur les segments mesurés (bruts, y compris ceux marqués supprimés : la
+  // numérotation et les repères kilométriques restent ceux de la reconnaissance).
+  let cum = 0;
   segments.forEach((s) => {
-    const tr = el('tr', { class: `type-${s.type}` }, [
+    cum += s.distanceKm || 0;
+    const isDeleted = !!(segmentOverrides[s.numero] && segmentOverrides[s.numero].deleted);
+    const delInput = el('input', { type: 'checkbox', 'data-seg': String(s.numero) });
+    if (isDeleted) delInput.checked = true;
+    const tr = el('tr', { class: `type-${s.type}${isDeleted ? ' seg-deleted' : ''}` }, [
       el('td', {}, String(s.numero)),
       el('td', { class: 'type-cell' }, s.type),
       el('td', {}, fmt(s.distanceKm, 3)),
+      el('td', {}, fmt(cum, 3)),
       el('td', {}, fmt(s.dPlus, 1)),
       el('td', {}, fmt(s.dMinus, 1)),
       el('td', {}, fmt(s.dureeMin, 2)),
       el('td', {}, fmt(s.vitesseMoy, 2)),
       el('td', {}, fmt(s.penteMoy, 1)),
+      el('td', {}, delInput),
     ]);
     tbody.appendChild(tr);
   });

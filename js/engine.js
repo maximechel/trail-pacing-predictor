@@ -687,8 +687,18 @@ function applyKmOverrides(segments, kmOverrides) {
   });
 }
 
+/**
+ * Retire les segments marqués supprimés (`segmentOverrides[numero].deleted`). Les numéros des
+ * segments restants ne changent pas (lien avec les réglages par ligne du Pacing préservé).
+ */
+function removeDeletedSegments(segments, segmentOverrides) {
+  if (!segmentOverrides || Object.keys(segmentOverrides).length === 0) return segments;
+  return segments.filter((s) => !(segmentOverrides[s.numero] && segmentOverrides[s.numero].deleted));
+}
+
 if (typeof module !== 'undefined') {
   module.exports = {
+    removeDeletedSegments,
     excelRound, toNumber, average, sum, formatHM,
     parseImportCSV, assignSegmentGroups, buildSegments,
     minettiCostOfTransport, minettiTimeMultiplier, computePersonalCalibration,

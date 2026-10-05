@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=37" />
+<link rel="stylesheet" href="css/style.css?v=38" />
 </head>
 <body>
 <header class="app-header">
@@ -273,12 +273,17 @@
   <section id="tab-segments" class="tab-panel">
     <div class="card">
       <h2>📊 Segments — agrégation automatique depuis GPS</h2>
+      <p class="hint">
+        Cochez « Supprimer » pour retirer un segment (erreur de parcours pendant la reconnaissance) : il
+        disparaît aussitôt du tableau Pacing et des calculs.
+        <button id="seg-reset-btn" class="btn-secondary" type="button">↺ Réactiver tous les segments</button>
+      </p>
       <div class="table-wrap">
         <table id="segments-table">
           <thead>
             <tr>
-              <th>N° seg</th><th>Type</th><th>Distance (km)</th><th>D+ (m)</th><th>D- (m)</th>
-              <th>Durée GPS (min)</th><th>Vitesse moy (km/h)</th><th>Pente moy (%)</th>
+              <th>N° seg</th><th>Type</th><th>Distance (km)</th><th>Distance cumulée (km)</th><th>D+ (m)</th><th>D- (m)</th>
+              <th>Durée GPS (min)</th><th>Vitesse moy (km/h)</th><th>Pente moy (%)</th><th>Supprimer</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -418,14 +423,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=37"></script>
-<script src="js/engine.js?v=37"></script>
-<script src="js/fit-parser.js?v=37"></script>
-<script src="js/fit-to-csv.js?v=37"></script>
-<script src="js/gpx-parser.js?v=37"></script>
-<script src="js/athletes.js?v=37"></script>
-<script src="js/pdf-export.js?v=37"></script>
-<script src="js/ui.js?v=37"></script>
-<script src="js/main.js?v=37"></script>
+<script src="js/data.js?v=38"></script>
+<script src="js/engine.js?v=38"></script>
+<script src="js/fit-parser.js?v=38"></script>
+<script src="js/fit-to-csv.js?v=38"></script>
+<script src="js/gpx-parser.js?v=38"></script>
+<script src="js/athletes.js?v=38"></script>
+<script src="js/pdf-export.js?v=38"></script>
+<script src="js/ui.js?v=38"></script>
+<script src="js/main.js?v=38"></script>
 </body>
 </html>

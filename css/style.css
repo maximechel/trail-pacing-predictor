@@ -181,6 +181,9 @@ table#pacing-table th, table#pacing-table td {
 table#segments-table th:nth-child(2), table#segments-table td:nth-child(2) {
   text-align: left;
 }
+table#segments-table input[type="checkbox"] { transform: scale(1.15); cursor: pointer; }
+tr.seg-deleted { background: #fbe4e4; }
+tr.seg-deleted td:not(:has(input)) { text-decoration: line-through; color: var(--muted); }
 table#pacing-table th:nth-child(1), table#pacing-table td:nth-child(1) {
   text-align: center;
 }

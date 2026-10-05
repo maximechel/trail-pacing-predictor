@@ -20,6 +20,7 @@ const state = {
   rowOverrides: {},       // { [numero]: { intensite, technicite, conditions, pause } }
   rowMeta: {},            // { [numero]: { selected, label } } — purement présentationnel (repères, export)
   kmOverrides: {},        // { [kmIndex]: { distanceKm, dPlus, dMinus, dureeMin, deleted, note } } — corrections manuelles km par km
+  segmentOverrides: {},   // { [numero]: { deleted } } — segments supprimés depuis l'onglet Segments
   kmTable: [],            // tableau km par km MESURÉ (brut), reconstruit à chaque recomputeAll()
   effectiveSegments: [],  // segments après application de kmOverrides — utilisés pour profils/pacing (segments = version brute, pour la référence)
   pacing: null,
@@ -59,6 +60,7 @@ function saveDraft() {
     rowOverrides: state.rowOverrides,
     rowMeta: state.rowMeta,
     kmOverrides: state.kmOverrides,
+    segmentOverrides: state.segmentOverrides,
     showAdvanced: state.showAdvanced,
     loadedEstimationId: state.loadedEstimationId,
   };
@@ -119,7 +121,10 @@ function suggestCategorie(distanceKm) {
  */
 function recomputeEffectiveSegments() {
   state.kmTable = state.segments.length ? buildKmTable(state.segments) : [];
-  state.effectiveSegments = applyKmOverrides(state.segments, state.kmOverrides);
+  // 1) corrections km par km, 2) retrait des segments supprimés depuis l'onglet Segments.
+  state.effectiveSegments = removeDeletedSegments(
+    applyKmOverrides(state.segments, state.kmOverrides), state.segmentOverrides,
+  );
 }
 
 function recomputeAll() {
@@ -179,7 +184,7 @@ function renderAll() {
   renderAllCoefTables(state.settings, () => { saveSettings(); recomputeAll(); });
 
   // Segments
-  renderSegmentsTable(state.segments);
+  renderSegmentsTable(state.segments, state.segmentOverrides);
 
   // Profils
   renderProfils(state.profils);
@@ -338,6 +343,7 @@ function loadEstimation(estimationId) {
   state.rowOverrides = JSON.parse(JSON.stringify(est.rowOverrides || {}));
   state.rowMeta = JSON.parse(JSON.stringify(est.rowMeta || {}));
   state.kmOverrides = JSON.parse(JSON.stringify(est.kmOverrides || {}));
+  state.segmentOverrides = JSON.parse(JSON.stringify(est.segmentOverrides || {}));
   state.loadedEstimationId = estimationId; // permet de "mettre à jour" cette même entrée en la resauvegardant
 
   recomputeAll();
@@ -543,6 +549,7 @@ function analyzeCSV(text) {
     state.rowOverrides = {};
     state.rowMeta = {};
     state.kmOverrides = {};
+    state.segmentOverrides = {};
     state.loadedEstimationId = null; // une nouvelle reconnaissance GPS = une nouvelle estimation, pas une modification
     const auto = computeCourseAutoFields(rows);
     state.categorie = suggestCategorie(auto.distanceTotaleKm);
@@ -603,6 +610,7 @@ function wireImportTab() {
     state.rowOverrides = {};
     state.rowMeta = {};
     state.kmOverrides = {};
+    state.segmentOverrides = {};
     state.kmTable = [];
     state.effectiveSegments = [];
     state.loadedEstimationId = null;
@@ -663,6 +671,28 @@ function loadLogo() {
     const saved = localStorage.getItem(STORAGE_KEY_LOGO);
     if (saved) $('#app-logo').src = saved;
   } catch (e) { /* ignore */ }
+}
+
+// ---------- Segments : suppression ----------
+
+function wireSegmentsTab() {
+  const table = $('#segments-table');
+  if (!table) return;
+  table.addEventListener('change', (e) => {
+    const target = e.target;
+    const seg = target.dataset.seg;
+    if (seg === undefined || target.type !== 'checkbox') return;
+    if (target.checked) state.segmentOverrides[seg] = { deleted: true };
+    else delete state.segmentOverrides[seg];
+    recomputeAll();
+  });
+  const resetBtn = $('#seg-reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      state.segmentOverrides = {};
+      recomputeAll();
+    });
+  }
 }
 
 // ---------- Km par km (contrôle + corrections manuelles) ----------
@@ -931,6 +961,7 @@ function init() {
     state.rowOverrides = draft.rowOverrides ?? {};
     state.rowMeta = draft.rowMeta ?? {};
     state.kmOverrides = draft.kmOverrides ?? {};
+    state.segmentOverrides = draft.segmentOverrides ?? {};
     state.showAdvanced = !!draft.showAdvanced;
     if (draft.loadedEstimationId) state.loadedEstimationId = draft.loadedEstimationId;
   }
@@ -940,6 +971,7 @@ function init() {
   wireFitTab();
   wireImportTab();
   wireParametresTab();
+  wireSegmentsTab();
   wireKmTab();
   wirePacingTab();
   loadLogo();
