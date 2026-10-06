@@ -343,7 +343,10 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   const items = landmarks.map((lm) => {
     const x = xOf(lm.distCumFin);
     const isStart = lm.distCumFin <= maxDist * 0.02;
-    const isEnd = !isStart && lm.distCumFin >= maxDist * 0.98;
+    // Arrivée : repérée par le mot « Arrivée » dans le nom du repère (insensible à la casse et aux
+    // accents), et non plus par la seule position en fin de parcours.
+    const labelNorm = String(lm.label || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const isEnd = !isStart && labelNorm.includes('arrivee');
     const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`;
     const w = Math.max(textWidth(lm.label, FONT_BOLD), textWidth(kmLine, FONT_REG)) + LABEL_MARGIN;
     return { lm, x, isStart, isEnd, isEdge: isStart || isEnd, kmLine, halfWidth: w / 2 };
