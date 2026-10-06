@@ -340,14 +340,17 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
   // propre rangée dédiée tout en haut, dans une couleur différente (rose), indépendamment des niveaux
   // calculés ci-dessous pour les repères intermédiaires (répartis dynamiquement au-dessus ET en-dessous
   // du graphique, sur autant de niveaux que nécessaire pour ne jamais se chevaucher).
+  // Arrivée : repérée par le mot « Arrivée » dans le nom du repère (insensible à la casse et aux
+  // accents). Repli pour les estimations déjà enregistrées dont aucun repère ne porte ce mot : on
+  // garde l'ancienne règle (dernier repère en fin de parcours, ≥ 98 %), pour ne pas perdre leur trait rose.
+  const normLabel = (lm) => String(lm.label || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const hasArrivee = landmarks.some((lm) => normLabel(lm).includes('arrivee'));
   const items = landmarks.map((lm) => {
     const x = xOf(lm.distCumFin);
     const isStart = lm.distCumFin <= maxDist * 0.02;
-    // Arrivée : repérée par le mot « Arrivée » dans le nom du repère (insensible à la casse et aux
-    // accents), et non plus par la seule position en fin de parcours.
-    const labelNorm = String(lm.label || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-    const isEnd = !isStart && labelNorm.includes('arrivee');
-    const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlus)} m · D-${Math.round(lm.dMinus)} m`;
+    const isEnd = !isStart && (hasArrivee ? normLabel(lm).includes('arrivee') : lm.distCumFin >= maxDist * 0.98);
+    // Kilométrage, D+ et D- CUMULÉS depuis le départ (et non ceux du tronçon depuis le repère précédent).
+    const kmLine = `${lm.distCumFin.toFixed(1)} km · D+${Math.round(lm.dPlusCumul)} m · D-${Math.round(lm.dMinusCumul)} m`;
     const w = Math.max(textWidth(lm.label, FONT_BOLD), textWidth(kmLine, FONT_REG)) + LABEL_MARGIN;
     return { lm, x, isStart, isEnd, isEdge: isStart || isEnd, kmLine, halfWidth: w / 2 };
   });
