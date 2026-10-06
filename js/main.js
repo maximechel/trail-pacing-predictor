@@ -202,6 +202,10 @@ function renderAll() {
   populateSelect($('#global-technicite'), state.settings.technicite, state.globalDefaults.technicite);
   populateSelect($('#global-conditions'), state.settings.conditions, state.globalDefaults.conditions);
 
+  populateBulkSelect('#bulk-intensite', state.settings.intensite);
+  populateBulkSelect('#bulk-technicite', state.settings.technicite);
+  populateBulkSelect('#bulk-conditions', state.settings.conditions);
+
   renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
   updateExportButtonLabel();
   const pdfBtn = $('#generate-pdf-btn');
@@ -217,6 +221,65 @@ function renderAll() {
   updateSaveEstimationSection(activeAthlete);
 
   scheduleDraftSave();
+}
+
+/** Liste déroulante de la modification groupée : « — inchangé — » + les libellés de la table de coefficients. */
+function populateBulkSelect(selector, options) {
+  const select = $(selector);
+  if (!select) return;
+  const previous = select.value;
+  select.innerHTML = '';
+  select.appendChild(el('option', { value: '' }, '— inchangé —'));
+  options.forEach((opt) => {
+    const label = typeof opt === 'string' ? opt : opt.label;
+    select.appendChild(el('option', { value: label }, label));
+  });
+  if (previous && Array.from(select.options).some((o) => o.value === previous)) select.value = previous;
+}
+
+function wireBulkEdit() {
+  const statusEl = $('#bulk-status');
+  const setStatus = (cls, msg) => { statusEl.className = `status ${cls}`; statusEl.textContent = msg; };
+
+  $('#bulk-range-btn').addEventListener('click', () => {
+    if (!state.pacing) return;
+    const from = parseInt($('#bulk-range-from').value, 10);
+    const to = parseInt($('#bulk-range-to').value, 10);
+    if (Number.isNaN(from) || Number.isNaN(to)) { setStatus('error', 'Renseignez le N° de début et le N° de fin.'); return; }
+    const lo = Math.min(from, to);
+    const hi = Math.max(from, to);
+    let n = 0;
+    state.pacing.rows.forEach((row) => {
+      if (row.numero >= lo && row.numero <= hi) {
+        if (!state.rowMeta[row.numero]) state.rowMeta[row.numero] = {};
+        state.rowMeta[row.numero].selected = true;
+        n += 1;
+      }
+    });
+    renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
+    updateExportButtonLabel();
+    scheduleDraftSave();
+    setStatus('ok', `${n} ligne${n > 1 ? 's' : ''} cochée${n > 1 ? 's' : ''} (N° ${lo} à ${hi}).`);
+  });
+
+  $('#bulk-apply-btn').addEventListener('click', () => {
+    if (!state.pacing) return;
+    const values = {
+      intensite: $('#bulk-intensite').value,
+      technicite: $('#bulk-technicite').value,
+      conditions: $('#bulk-conditions').value,
+    };
+    const fields = Object.keys(values).filter((f) => values[f] !== '');
+    if (fields.length === 0) { setStatus('error', 'Choisissez au moins une valeur à appliquer (intensité, technicité ou conditions).'); return; }
+    const selected = state.pacing.rows.filter((r) => state.rowMeta[r.numero] && state.rowMeta[r.numero].selected);
+    if (selected.length === 0) { setStatus('error', 'Aucune ligne cochée : cochez des lignes (ou une plage de N°) avant d\'appliquer.'); return; }
+    selected.forEach((row) => {
+      if (!state.rowOverrides[row.numero]) state.rowOverrides[row.numero] = {};
+      fields.forEach((f) => { state.rowOverrides[row.numero][f] = values[f]; });
+    });
+    recomputePacingOnly();
+    setStatus('ok', `✔ ${fields.join(', ')} appliqué${fields.length > 1 ? 's' : ''} à ${selected.length} ligne${selected.length > 1 ? 's' : ''}.`);
+  });
 }
 
 function updateSaveEstimationSection(activeAthlete) {
@@ -990,6 +1053,7 @@ function init() {
   wireSegmentsTab();
   wireKmTab();
   wirePacingTab();
+  wireBulkEdit();
   loadLogo();
   $('#app-logo').addEventListener('error', () => { $('#app-logo').style.display = 'none'; });
   $('#toggle-full-columns').checked = state.showAdvanced;
