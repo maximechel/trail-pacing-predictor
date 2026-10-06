@@ -243,14 +243,20 @@ function wireBulkEdit() {
 
   $('#bulk-range-btn').addEventListener('click', () => {
     if (!state.pacing) return;
-    const from = parseInt($('#bulk-range-from').value, 10);
-    const to = parseInt($('#bulk-range-to').value, 10);
-    if (Number.isNaN(from) || Number.isNaN(to)) { setStatus('error', 'Renseignez le N° de début et le N° de fin.'); return; }
+    const from = parseFloat($('#bulk-range-from').value);
+    const to = parseFloat($('#bulk-range-to').value);
+    if (Number.isNaN(from) || Number.isNaN(to)) { setStatus('error', 'Renseignez le km de début et le km de fin.'); return; }
     const lo = Math.min(from, to);
     const hi = Math.max(from, to);
+    const EPS = 1e-6;
     let n = 0;
     state.pacing.rows.forEach((row) => {
-      if (row.numero >= lo && row.numero <= hi) {
+      const start = row.distCumDebut || 0;
+      const end = start + (row.distanceKm || 0);
+      // Une ligne est cochée si elle recouvre la portion [lo, hi] du parcours (la ligne Départ, de
+      // longueur nulle, l'est si son point de départ y est inclus).
+      const overlaps = end > start + EPS ? (end > lo + EPS && start < hi - EPS) : (start >= lo - EPS && start <= hi + EPS);
+      if (overlaps) {
         if (!state.rowMeta[row.numero]) state.rowMeta[row.numero] = {};
         state.rowMeta[row.numero].selected = true;
         n += 1;
@@ -259,7 +265,7 @@ function wireBulkEdit() {
     renderPacingTable(state.pacing, state.settings, state.showAdvanced, state.rowMeta);
     updateExportButtonLabel();
     scheduleDraftSave();
-    setStatus('ok', `${n} ligne${n > 1 ? 's' : ''} cochée${n > 1 ? 's' : ''} (N° ${lo} à ${hi}).`);
+    setStatus('ok', `${n} ligne${n > 1 ? 's' : ''} cochée${n > 1 ? 's' : ''} (du km ${lo} au km ${hi}).`);
   });
 
   $('#bulk-apply-btn').addEventListener('click', () => {

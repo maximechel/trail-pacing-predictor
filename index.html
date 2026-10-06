@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>🏔 Prédicteur de Pacing Trail — V3</title>
-<link rel="stylesheet" href="css/style.css?v=43" />
+<link rel="stylesheet" href="css/style.css?v=44" />
 </head>
 <body>
 <header class="app-header">
@@ -366,16 +366,16 @@
     <div class="card">
       <h2>✏️ Modifier plusieurs segments à la fois</h2>
       <p class="hint">
-        Cochez des lignes dans le tableau ci-dessous (ou saisissez une plage de N°), choisissez les valeurs
+        Cochez des lignes dans le tableau ci-dessous (ou saisissez une plage en kilomètres cumulés : toutes les lignes qui recouvrent cette portion du parcours sont cochées), choisissez les valeurs
         à appliquer, puis cliquez sur « Appliquer aux lignes cochées ». Un champ laissé sur « — inchangé — »
         n'est pas modifié.
       </p>
       <div class="form-grid">
-        <label>Cocher du N°
-          <input type="number" id="bulk-range-from" min="0" step="1" placeholder="ex. 5" />
+        <label>Cocher du km (cumulé)
+          <input type="number" id="bulk-range-from" min="0" step="0.1" placeholder="ex. 12" />
         </label>
-        <label>au N°
-          <input type="number" id="bulk-range-to" min="0" step="1" placeholder="ex. 12" />
+        <label>au km (cumulé)
+          <input type="number" id="bulk-range-to" min="0" step="0.1" placeholder="ex. 25.5" />
         </label>
         <label>Intensité
           <select id="bulk-intensite"></select>
@@ -454,14 +454,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.0.0/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="js/data.js?v=43"></script>
-<script src="js/engine.js?v=43"></script>
-<script src="js/fit-parser.js?v=43"></script>
-<script src="js/fit-to-csv.js?v=43"></script>
-<script src="js/gpx-parser.js?v=43"></script>
-<script src="js/athletes.js?v=43"></script>
-<script src="js/pdf-export.js?v=43"></script>
-<script src="js/ui.js?v=43"></script>
-<script src="js/main.js?v=43"></script>
+<script src="js/data.js?v=44"></script>
+<script src="js/engine.js?v=44"></script>
+<script src="js/fit-parser.js?v=44"></script>
+<script src="js/fit-to-csv.js?v=44"></script>
+<script src="js/gpx-parser.js?v=44"></script>
+<script src="js/athletes.js?v=44"></script>
+<script src="js/pdf-export.js?v=44"></script>
+<script src="js/ui.js?v=44"></script>
+<script src="js/main.js?v=44"></script>
 </body>
 </html>
