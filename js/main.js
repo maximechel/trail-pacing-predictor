@@ -761,7 +761,14 @@ function wirePacingTab() {
   $('#global-conditions').addEventListener('change', (e) => { state.globalDefaults.conditions = e.target.value; renderAll(); });
 
   $('#apply-global-btn').addEventListener('click', () => {
-    state.rowOverrides = {};
+    // Remet intensité/technicité/conditions de chaque ligne sur les réglages globaux, mais conserve
+    // les pauses ravito déjà saisies (elles ne dépendent pas de ces réglages).
+    const next = {};
+    Object.keys(state.rowOverrides).forEach((seg) => {
+      const pause = state.rowOverrides[seg] && state.rowOverrides[seg].pause;
+      if (typeof pause === 'number' && pause !== 0) next[seg] = { pause };
+    });
+    state.rowOverrides = next;
     recomputeAll();
   });
 
@@ -816,6 +823,15 @@ function wirePacingTab() {
   // (sinon le champ perdrait le focus au milieu de la saisie).
   $('#pacing-table').addEventListener('input', (e) => {
     const target = e.target;
+    // Pause ravito : enregistrée dès la frappe (sans attendre la sortie du champ), pour ne jamais
+    // être perdue si on change d'onglet ou recharge la page avant que le champ ne perde le focus.
+    if (target.dataset.field === 'pause' && target.dataset.seg) {
+      const segKey = target.dataset.seg;
+      if (!state.rowOverrides[segKey]) state.rowOverrides[segKey] = {};
+      state.rowOverrides[segKey].pause = parseFloat(target.value) || 0;
+      scheduleDraftSave();
+      return;
+    }
     if (target.dataset.field !== 'rowLabel') return;
     const seg = target.dataset.seg;
     if (!seg) return;
