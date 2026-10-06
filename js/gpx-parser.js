@@ -64,6 +64,27 @@ function parseGpxElevationRows(gpxText) {
   return rows.filter((r) => typeof r.altitude_m === 'number');
 }
 
+/**
+ * Distance totale (km), D+ et D- (m) du tracé GPX, à partir des lignes { distance_cum_m, altitude_m }
+ * de parseGpxElevationRows() (mêmes conventions que computeCourseAutoFields pour les .fit : distance
+ * arrondie à 0,1 km, D+/D- à l'unité).
+ */
+function computeGpxTotals(rows) {
+  if (!rows || rows.length < 2) return null;
+  let dPlus = 0;
+  let dMinus = 0;
+  for (let i = 1; i < rows.length; i++) {
+    const d = rows[i].altitude_m - rows[i - 1].altitude_m;
+    if (d > 0) dPlus += d;
+    else dMinus -= d;
+  }
+  return {
+    distanceTotaleKm: Math.round((rows[rows.length - 1].distance_cum_m / 1000) * 10) / 10,
+    dPlusTotal: Math.round(dPlus),
+    dMinusTotal: Math.round(dMinus),
+  };
+}
+
 if (typeof module !== 'undefined') {
-  module.exports = { extractGpxPoints, parseGpxElevationRows };
+  module.exports = { extractGpxPoints, parseGpxElevationRows, computeGpxTotals };
 }

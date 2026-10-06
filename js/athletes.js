@@ -97,6 +97,7 @@ function buildEstimationSnapshot(state) {
     // Profil altimétrique du GPX officiel de la course, s'il a été chargé — prioritaire sur celui de la
     // reconnaissance GPS pour le PDF (cf. buildElevationProfile dans pdf-export.js).
     gpxElevationProfile: state.gpxElevationProfile || null,
+    gpxTotals: state.gpxTotals || null,
   };
 }
 

@@ -9,6 +9,7 @@ const state = {
   settings: null,       // tables de coefficients (cf. data.js), modifiable par l'utilisateur
   csvRows: null,         // lignes IMPORT_CSV parsées
   elevationProfile: null, // profil altimétrique échantillonné (repli quand csvRows est absent, ex. estimation rechargée)
+  gpxTotals: null,       // distance / D+ / D- du GPX officiel (titre du PDF), si chargé
   gpxElevationProfile: null, // profil altimétrique du GPX officiel de la course, si chargé (prioritaire sur celui du FIT)
   segments: [],          // résultat SEGMENTS
   profils: null,         // résultat PROFILS
@@ -53,6 +54,7 @@ function saveDraft() {
     // quota localStorage (cf. rattrapage ci-dessous) : garde un profil altimétrique précis malgré tout.
     elevationProfile: state.elevationProfile || downsampleElevationProfile(state.csvRows),
     gpxElevationProfile: state.gpxElevationProfile,
+    gpxTotals: state.gpxTotals,
     segments: state.segments,
     profils: state.profils,
     auto: state.auto,
@@ -402,6 +404,7 @@ function loadEstimation(estimationId) {
   state.csvRows = null; // pas de points GPS bruts dans l'instantané : on repart des segments déjà calculés
   state.elevationProfile = est.elevationProfile || null; // profil altimétrique échantillonné (repli précis pour le PDF)
   state.gpxElevationProfile = est.gpxElevationProfile || null;
+  state.gpxTotals = est.gpxTotals || null;
   state.courseNom = est.courseNom;
   state.categorie = est.categorie;
   state.heureDepart = est.heureDepart ?? null;
@@ -673,6 +676,7 @@ function wireImportTab() {
     state.csvRows = null;
     state.elevationProfile = null;
     state.gpxElevationProfile = null;
+    state.gpxTotals = null;
     state.segments = [];
     state.profils = null;
     state.pacing = null;
@@ -970,10 +974,12 @@ function wirePacingTab() {
           const rows = parseGpxElevationRows(reader.result);
           state.gpxElevationProfile = downsampleElevationProfile(rows, 400);
           if (!state.gpxElevationProfile) throw new Error("Profil altimétrique introuvable dans ce fichier.");
+          state.gpxTotals = computeGpxTotals(rows);
           renderGpxStatus();
           scheduleDraftSave();
         } catch (err) {
           state.gpxElevationProfile = null;
+          state.gpxTotals = null;
           statusEl.className = 'status error';
           statusEl.textContent = `✖ ${err.message}`;
         }
@@ -990,6 +996,7 @@ function wirePacingTab() {
   if (gpxResetBtn) {
     gpxResetBtn.addEventListener('click', () => {
       state.gpxElevationProfile = null;
+      state.gpxTotals = null;
       $('#gpx-file-input').value = '';
       $('#gpx-status').className = 'status';
       $('#gpx-status').textContent = '';
@@ -1039,6 +1046,7 @@ function init() {
     state.csvRows = draft.csvRows ?? null;
     state.elevationProfile = draft.elevationProfile ?? null;
     state.gpxElevationProfile = draft.gpxElevationProfile ?? null;
+    state.gpxTotals = draft.gpxTotals ?? null;
     state.segments = draft.segments ?? [];
     state.profils = draft.profils ?? null;
     state.auto = draft.auto ?? state.auto;

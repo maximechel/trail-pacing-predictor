@@ -494,6 +494,30 @@ function drawElevationChartCanvas(profile, landmarks, totalDistanceKm) {
 }
 
 /**
+ * Distance / D+ / D- affichés dans le titre du PDF : ceux du GPX officiel s'il est chargé (totaux
+ * calculés à l'import du GPX), sinon — estimations enregistrées avant cette option — recalculés depuis
+ * le profil GPX échantillonné, sinon ceux de la reconnaissance .fit (state.auto).
+ */
+function getTitleTotals(state) {
+  if (state.gpxTotals) return state.gpxTotals;
+  const prof = state.gpxElevationProfile;
+  if (prof && prof.length >= 2) {
+    let dPlus = 0;
+    let dMinus = 0;
+    for (let i = 1; i < prof.length; i++) {
+      const d = prof[i].alt - prof[i - 1].alt;
+      if (d > 0) dPlus += d; else dMinus -= d;
+    }
+    return {
+      distanceTotaleKm: Math.round(prof[prof.length - 1].distKm * 10) / 10,
+      dPlusTotal: Math.round(dPlus),
+      dMinusTotal: Math.round(dMinus),
+    };
+  }
+  return state.auto;
+}
+
+/**
  * Génère et télécharge le PDF récapitulatif de pacing.
  * @param {object} state état de l'application (cf. main.js)
  */
@@ -550,10 +574,11 @@ async function generatePacingPDF(state) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(11);
   doc.setTextColor(90, 90, 90);
+  const titleTotals = getTitleTotals(state);
   const subtitle = [
-    `${fmtPdf(state.auto.distanceTotaleKm, 1)} km`,
-    `D+ ${fmtPdf(state.auto.dPlusTotal, 0)} m`,
-    `D- ${fmtPdf(state.auto.dMinusTotal, 0)} m`,
+    `${fmtPdf(titleTotals.distanceTotaleKm, 1)} km`,
+    `D+ ${fmtPdf(titleTotals.dPlusTotal, 0)} m`,
+    `D- ${fmtPdf(titleTotals.dMinusTotal, 0)} m`,
     `Catégorie : ${state.categorie}`,
   ].join('   ·   ');
   const subtitleLines = doc.splitTextToSize(subtitle, subtitleWidth);
